@@ -1,0 +1,66 @@
+spring:
+  application:
+    name: intelligent-doctor
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+  servlet:
+    multipart:
+      max-file-size: 20MB
+      max-request-size: 20MB
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+  jpa:
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+  kafka:
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+    consumer:
+      group-id: ${KAFKA_CONSUMER_GROUP:intelligent-doctor}
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+server:
+  error:
+    include-message: always
+
+app:
+  default-hospital-id: ${APP_DEFAULT_HOSPITAL_ID:hospital-demo}
+  history:
+    provider: ${APP_HISTORY_PROVIDER:mongodb}
+  ai:
+    provider: ${APP_AI_PROVIDER:openai}
+    base-url: ${OPENAI_BASE_URL:https://api.openai.com/v1}
+    api-key: ${OPENAI_API_KEY:}
+    use-demo-key: ${OPENAI_USE_DEMO_KEY:false}
+    chat-model: ${OPENAI_CHAT_MODEL:gpt-4o-mini}
+    embedding-base-url: ${OPENAI_EMBEDDING_BASE_URL:${OPENAI_BASE_URL:https://api.openai.com/v1}}
+    embedding-api-key: ${OPENAI_EMBEDDING_API_KEY:${OPENAI_API_KEY:}}
+    embedding-model: ${OPENAI_EMBEDDING_MODEL:text-embedding-3-small}
+    embedding-dimensions: ${OPENAI_EMBEDDING_DIMENSIONS:1024}
+  vector-store:
+    provider: ${APP_VECTOR_STORE_PROVIDER:pinecone}
+    namespace-prefix: ${PINECONE_NAMESPACE_PREFIX:intelligent-doctor}
+    pinecone:
+      api-key: ${PINECONE_API_KEY:}
+      index-host: ${PINECONE_INDEX_HOST:}
+      api-version: ${PINECONE_API_VERSION:2026-04}
+  registration:
+    stock-provider: ${APP_STOCK_PROVIDER:redis}
+    event-provider: ${APP_EVENT_PROVIDER:local}
+    kafka-topic: ${KAFKA_REGISTRATION_TOPIC:registration.reserved}
+    draft-expire-minutes: ${APP_DRAFT_EXPIRE_MINUTES:30}
+  stream:
+    chunk-size: ${APP_STREAM_CHUNK_SIZE:26}
+    chunk-delay-millis: ${APP_STREAM_CHUNK_DELAY_MILLIS:35}

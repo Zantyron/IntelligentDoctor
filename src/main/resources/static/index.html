@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智能导诊</title>
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body class="patient-body">
+<main class="shell">
+    <section class="hero-card">
+        <div class="eyebrow">AI TRIAGE HUB</div>
+        <h1>智能导诊</h1>
+        <p class="hero-copy">从症状理解、知识检索、智能推荐到正式挂号确认，一次对话完成导诊与预约决策。</p>
+        <div class="hero-grid">
+            <article>
+                <span>双模式</span>
+                <strong>病情诊断 / 智能挂号</strong>
+            </article>
+            <article>
+                <span>模型链路</span>
+                <strong>OpenAI + RAG + SSE</strong>
+            </article>
+            <article>
+                <span>工程追踪</span>
+                <strong>Redis / MySQL / Tool Trace</strong>
+            </article>
+        </div>
+    </section>
+
+    <section class="workspace">
+        <aside class="mode-panel">
+            <div class="panel-header">
+                <h2>问诊入口</h2>
+                <p>诊断建议仅作导诊参考，不能替代医生面诊。</p>
+            </div>
+
+            <div class="mode-toggle">
+                <button class="mode-btn active" data-mode="diagnosis">病情诊断</button>
+                <button class="mode-btn" data-mode="registration">智能挂号</button>
+            </div>
+
+            <label class="consent">
+                <input type="checkbox" id="consent" checked>
+                <span>同意保存聊天记录用于调试与追踪</span>
+            </label>
+
+            <div class="quick-prompts">
+                <button data-prompt="最近三天一直发热咳嗽，晚上更明显，想看看适合挂什么科。">发热咳嗽</button>
+                <button data-prompt="最近头痛头晕，偶尔恶心，想先判断一下是什么问题。">头痛头晕</button>
+                <button data-prompt="胸闷心慌，走路后更明显，想挂号找合适的医生。">胸闷心慌</button>
+            </div>
+
+            <div class="draft-card">
+                <div class="draft-title">当前挂号草稿</div>
+                <div id="draftState" class="draft-empty">进入智能挂号模式后，系统会自动生成待确认草稿。</div>
+                <form id="confirmForm" class="confirm-form hidden">
+                    <input id="patientName" autocomplete="name" placeholder="患者姓名" required>
+                    <input id="patientPhone" autocomplete="tel" placeholder="手机号" required>
+                    <input id="idCard" autocomplete="off" placeholder="身份证号" required>
+                    <button type="submit">确认挂号</button>
+                </form>
+                <div id="orderResult" class="order-result hidden"></div>
+            </div>
+        </aside>
+
+        <section class="chat-panel">
+            <div class="chat-header">
+                <div>
+                    <div class="eyebrow">SESSION</div>
+                    <h2 id="modeTitle">病情诊断</h2>
+                </div>
+                <a href="/admin.html" class="admin-link">进入管理后台</a>
+            </div>
+
+            <div id="chatLog" class="chat-log"></div>
+
+            <div id="resultPanel" class="result-panel hidden">
+                <h3>智能推荐</h3>
+                <div id="recommendations" class="cards"></div>
+                <div id="evidenceList" class="evidence-list"></div>
+            </div>
+
+            <form id="chatForm" class="composer">
+                <textarea id="messageInput" placeholder="请描述你的症状、持续时间、是否发热、是否有危险信号等..." rows="4"></textarea>
+                <div class="composer-bar">
+                    <small>支持流式输出、RAG 推荐依据与自动挂号草稿生成</small>
+                    <button type="submit">发送</button>
+                </div>
+            </form>
+        </section>
+    </section>
+</main>
+<script src="/config.js"></script>
+<script src="/app.js"></script>
+</body>
+</html>

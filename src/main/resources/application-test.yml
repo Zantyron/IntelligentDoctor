@@ -1,0 +1,38 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:intelligent_doctor_test;MODE=MySQL;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+  data:
+    mongodb:
+      uri: mongodb://localhost:27017/intelligent_doctor_test?serverSelectionTimeoutMS=1000&connectTimeoutMS=1000
+    redis:
+      host: localhost
+      port: 6379
+  kafka:
+    bootstrap-servers: localhost:9092
+
+management:
+  health:
+    mongo:
+      enabled: false
+    redis:
+      enabled: false
+    kafka:
+      enabled: false
+
+app:
+  history:
+    provider: memory
+  ai:
+    provider: rule-based
+    use-demo-key: true
+  vector-store:
+    provider: memory
+  registration:
+    stock-provider: local
+    event-provider: local

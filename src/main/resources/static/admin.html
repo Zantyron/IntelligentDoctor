@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智能导诊后台</title>
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body class="admin-body">
+<div class="mesh"></div>
+<main class="admin-shell">
+    <header class="admin-hero">
+        <div>
+            <div class="eyebrow">ADMIN CONSOLE</div>
+            <h1>医院知识与组织结构导入</h1>
+            <p>上传医院主数据和知识文档，查看 MySQL 持久化、向量重建、失败原因和重试结果。</p>
+        </div>
+        <a href="/" class="admin-link">返回患者端</a>
+    </header>
+
+    <section class="admin-grid">
+        <article class="admin-card upload-card">
+            <h2>资料导入</h2>
+            <p>支持 CSV / Excel / Markdown / PDF。CSV 和 Excel 可用 type 列导入医院、科室、诊室、医生、排班、挂号规则和知识片段。</p>
+            <form id="uploadForm" class="upload-form">
+                <input type="file" id="uploadFile" accept=".csv,.xlsx,.xls,.md,.markdown,.pdf,.txt" required>
+                <button type="submit">上传并导入</button>
+            </form>
+            <button id="reindexBtn" class="ghost-btn">重建向量索引</button>
+            <div id="importFeedback" class="status-box">等待操作</div>
+        </article>
+
+        <article class="admin-card profile-card">
+            <h2>系统配置</h2>
+            <div id="systemProfile" class="status-box">加载中...</div>
+        </article>
+
+        <article class="admin-card list-card">
+            <div class="card-head">
+                <h2>导入任务</h2>
+                <button id="refreshImports" class="tiny-btn">刷新</button>
+            </div>
+            <div id="importList" class="list-wrap"></div>
+        </article>
+
+        <article class="admin-card list-card">
+            <div class="card-head">
+                <h2>挂号订单</h2>
+                <button id="refreshOrders" class="tiny-btn">刷新</button>
+            </div>
+            <div id="orderList" class="list-wrap"></div>
+        </article>
+    </section>
+</main>
+<script src="/config.js"></script>
+<script src="/admin.js"></script>
+</body>
+</html>
