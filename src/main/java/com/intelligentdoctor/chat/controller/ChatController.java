@@ -1,24 +1,44 @@
 package com.intelligentdoctor.chat.controller;
 
+import com.intelligentdoctor.chat.dto.ChatMessageView;
+import com.intelligentdoctor.chat.dto.ChatSessionView;
 import com.intelligentdoctor.chat.dto.ChatStreamRequest;
+import com.intelligentdoctor.chat.history.ChatHistoryService;
 import com.intelligentdoctor.chat.model.ChatMode;
 import com.intelligentdoctor.chat.service.ChatOrchestratorService;
+import com.intelligentdoctor.common.ApiResponse;
+import com.intelligentdoctor.config.AppProperties;
+import com.intelligentdoctor.registration.service.RegistrationService;
 import jakarta.validation.Valid;
 import org.springframework.http.MediaType;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/chat")
 public class ChatController {
 
     private final ChatOrchestratorService chatOrchestratorService;
+    private final ChatHistoryService chatHistoryService;
+    private final AppProperties properties;
+    private final RegistrationService registrationService;
 
-    public ChatController(ChatOrchestratorService chatOrchestratorService) {
+    public ChatController(ChatOrchestratorService chatOrchestratorService,
+                          ChatHistoryService chatHistoryService,
+                          AppProperties properties,
+                          RegistrationService registrationService) {
         this.chatOrchestratorService = chatOrchestratorService;
+        this.chatHistoryService = chatHistoryService;
+        this.properties = properties;
+        this.registrationService = registrationService;
     }
 
     @PostMapping(path = "/diagnosis/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
@@ -29,5 +49,41 @@ public class ChatController {
     @PostMapping(path = "/registration/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter registration(@Valid @RequestBody ChatStreamRequest request) {
         return chatOrchestratorService.stream(ChatMode.REGISTRATION, request);
+    }
+
+    @GetMapping("/sessions")
+    public ApiResponse<List<ChatSessionView>> sessions(@RequestParam(required = false) String hospitalId) {
+        return ApiResponse.success(chatHistoryService.listSessions(resolveHospitalId(hospitalId)));
+    }
+
+    @GetMapping("/messages")
+    public ApiResponse<List<ChatMessageView>> messages(@RequestParam String sessionId) {
+        return ApiResponse.success(chatHistoryService.listMessages(sessionId));
+    }
+
+    @DeleteMapping("/messages")
+    public ApiResponse<Void> deleteMessage(@RequestParam String messageId) {
+        chatHistoryService.deleteMessage(messageId);
+        return ApiResponse.success(null);
+    }
+
+    @DeleteMapping("/sessions")
+    public ApiResponse<Void> deleteSession(@RequestParam String sessionId) {
+        chatHistoryService.deleteSession(sessionId);
+        registrationService.deleteUnconfirmedDraftsBySession(sessionId);
+        return ApiResponse.success(null);
+    }
+
+    @DeleteMapping("/sessions/all")
+    public ApiResponse<Void> deleteAllSessions(@RequestParam(required = false) String hospitalId) {
+        for (ChatSessionView session : chatHistoryService.listSessions(resolveHospitalId(hospitalId))) {
+            registrationService.deleteUnconfirmedDraftsBySession(session.sessionId());
+        }
+        chatHistoryService.deleteAllSessions(resolveHospitalId(hospitalId));
+        return ApiResponse.success(null);
+    }
+
+    private String resolveHospitalId(String hospitalId) {
+        return hospitalId == null || hospitalId.isBlank() ? properties.getDefaultHospitalId() : hospitalId;
     }
 }

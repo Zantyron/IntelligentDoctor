@@ -51,6 +51,11 @@ public class RegistrationDraftEntity extends BaseEntity {
     @Column(length = 32)
     private String idCard;
 
+    @Column(length = 16)
+    private String gender;
+
+    private Integer age;
+
     @Column(length = 64)
     private String patientId;
 
@@ -156,6 +161,22 @@ public class RegistrationDraftEntity extends BaseEntity {
 
     public void setIdCard(String idCard) {
         this.idCard = idCard;
+    }
+
+    public String getGender() {
+        return gender;
+    }
+
+    public void setGender(String gender) {
+        this.gender = gender;
+    }
+
+    public Integer getAge() {
+        return age;
+    }
+
+    public void setAge(Integer age) {
+        this.age = age;
     }
 
     public String getPatientId() {

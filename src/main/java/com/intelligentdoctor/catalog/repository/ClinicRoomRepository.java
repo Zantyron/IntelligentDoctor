@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Optional;
 
 public interface ClinicRoomRepository extends JpaRepository<ClinicRoomEntity, String> {
+    List<ClinicRoomEntity> findByHospitalId(String hospitalId);
     List<ClinicRoomEntity> findByHospitalIdAndDepartmentId(String hospitalId, String departmentId);
     Optional<ClinicRoomEntity> findByHospitalIdAndClinicCode(String hospitalId, String clinicCode);
 }

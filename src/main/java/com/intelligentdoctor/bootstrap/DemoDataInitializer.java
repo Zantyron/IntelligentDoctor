@@ -79,10 +79,20 @@ public class DemoDataInitializer implements CommandLineRunner {
         DepartmentEntity respiratory = saveDepartment(hospitalCode, "RESP", "呼吸内科", "发热、咳嗽、咽痛、慢性咳嗽和支气管炎等呼吸系统问题。", "内科", 1);
         DepartmentEntity neuro = saveDepartment(hospitalCode, "NEUR", "神经内科", "头痛、头晕、失眠、偏头痛和肢体麻木等神经系统症状。", "内科", 2);
         DepartmentEntity cardio = saveDepartment(hospitalCode, "CARD", "心内科", "胸闷、胸痛、心慌、高血压和冠心病风险评估。", "内科", 3);
+        DepartmentEntity dermatology = saveDepartment(hospitalCode, "DERM", "皮肤科", "皮疹、瘙痒、湿疹、荨麻疹、痤疮和皮肤过敏等皮肤问题。", "专科", 4);
+        DepartmentEntity gastro = saveDepartment(hospitalCode, "GAST", "消化内科", "腹痛、腹泻、恶心、呕吐、胃痛和反酸等消化系统问题。", "内科", 5);
+        DepartmentEntity pediatrics = saveDepartment(hospitalCode, "PED", "儿科", "儿童发热、咳嗽、腹泻、皮疹和常见儿童健康问题。", "儿科", 6);
+        DepartmentEntity ent = saveDepartment(hospitalCode, "ENT", "耳鼻喉科", "鼻塞、流涕、咽痛、声音嘶哑、耳痛和听力下降等问题。", "专科", 7);
+        DepartmentEntity orthopedics = saveDepartment(hospitalCode, "ORTH", "骨科", "关节疼痛、扭伤、腰腿痛、颈肩痛和疑似骨折等问题。", "外科", 8);
 
         ClinicRoomEntity respClinic = saveClinic(hospitalCode, respiratory.getId(), "RESP-A", "呼吸门诊 A", "门诊楼 3F", "普通呼吸内科门诊。");
         ClinicRoomEntity neuroClinic = saveClinic(hospitalCode, neuro.getId(), "NEUR-A", "神经门诊 A", "门诊楼 4F", "头痛头晕与睡眠障碍门诊。");
         ClinicRoomEntity cardioClinic = saveClinic(hospitalCode, cardio.getId(), "CARD-VIP", "心内专家门诊", "门诊楼 5F", "胸痛和心血管风险专家门诊。");
+        ClinicRoomEntity dermClinic = saveClinic(hospitalCode, dermatology.getId(), "DERM-A", "皮肤门诊 A", "门诊楼 2F", "皮疹、瘙痒、过敏和湿疹门诊。");
+        ClinicRoomEntity gastroClinic = saveClinic(hospitalCode, gastro.getId(), "GAST-A", "消化门诊 A", "门诊楼 3F", "胃肠不适和消化系统门诊。");
+        ClinicRoomEntity pedClinic = saveClinic(hospitalCode, pediatrics.getId(), "PED-A", "儿科门诊 A", "门诊楼 2F", "儿童常见病门诊。");
+        ClinicRoomEntity entClinic = saveClinic(hospitalCode, ent.getId(), "ENT-A", "耳鼻喉门诊 A", "门诊楼 4F", "耳鼻咽喉常见病门诊。");
+        ClinicRoomEntity orthoClinic = saveClinic(hospitalCode, orthopedics.getId(), "ORTH-A", "骨科门诊 A", "门诊楼 5F", "关节、脊柱和运动损伤门诊。");
 
         DoctorEntity doctorLin = saveDoctor(hospitalCode, respiratory.getId(), respClinic.getId(), "DOC001", "林知远", "主任医师",
                 "呼吸系统感染、慢性咳嗽、肺部结节评估", "擅长呼吸系统炎症、慢性咳嗽和肺部影像异常的综合判断。", true, 80);
@@ -90,19 +100,44 @@ public class DemoDataInitializer implements CommandLineRunner {
                 "偏头痛、神经性头晕、睡眠障碍", "长期从事头痛、头晕和睡眠障碍门诊诊疗。", false, 60);
         DoctorEntity doctorQiao = saveDoctor(hospitalCode, cardio.getId(), cardioClinic.getId(), "DOC003", "乔一帆", "主任医师",
                 "胸闷胸痛、高血压、冠心病风险筛查", "擅长胸痛快速分诊和心血管慢病管理。", true, 120);
+        DoctorEntity doctorYe = saveDoctor(hospitalCode, dermatology.getId(), dermClinic.getId(), "DOC004", "叶明舒", "副主任医师",
+                "湿疹、荨麻疹、痤疮、皮肤过敏", "擅长常见皮肤病、过敏性皮炎和慢性瘙痒的分层处理。", true, 70);
+        DoctorEntity doctorHan = saveDoctor(hospitalCode, gastro.getId(), gastroClinic.getId(), "DOC005", "韩景行", "主治医师",
+                "胃痛、腹泻、胃食管反流、消化不良", "擅长胃肠道常见症状评估和消化内镜前分诊。", false, 50);
+        DoctorEntity doctorSu = saveDoctor(hospitalCode, pediatrics.getId(), pedClinic.getId(), "DOC006", "苏亦安", "副主任医师",
+                "儿童发热、咳嗽、腹泻、皮疹", "擅长儿童常见感染和皮疹类疾病导诊。", true, 80);
+        DoctorEntity doctorMao = saveDoctor(hospitalCode, ent.getId(), entClinic.getId(), "DOC007", "毛清言", "主治医师",
+                "鼻炎、咽喉炎、中耳炎、声音嘶哑", "擅长耳鼻咽喉常见病和慢性鼻炎评估。", false, 45);
+        DoctorEntity doctorZhou = saveDoctor(hospitalCode, orthopedics.getId(), orthoClinic.getId(), "DOC008", "周承", "副主任医师",
+                "关节疼痛、运动损伤、腰腿痛、颈肩痛", "擅长骨关节疼痛和运动损伤门诊评估。", false, 60);
 
         saveSchedule(hospitalCode, respiratory.getId(), respClinic.getId(), doctorLin.getId(), LocalDate.now().plusDays(1), "上午", 18, 18, false);
         saveSchedule(hospitalCode, respiratory.getId(), respClinic.getId(), doctorLin.getId(), LocalDate.now().plusDays(2), "下午", 12, 9, false);
         saveSchedule(hospitalCode, neuro.getId(), neuroClinic.getId(), doctorXu.getId(), LocalDate.now().plusDays(1), "下午", 16, 11, false);
         saveSchedule(hospitalCode, cardio.getId(), cardioClinic.getId(), doctorQiao.getId(), LocalDate.now().plusDays(1), "上午", 6, 4, true);
         saveSchedule(hospitalCode, cardio.getId(), cardioClinic.getId(), doctorQiao.getId(), LocalDate.now().plusDays(2), "上午", 6, 6, true);
+        saveSchedule(hospitalCode, dermatology.getId(), dermClinic.getId(), doctorYe.getId(), LocalDate.now().plusDays(1), "下午", 20, 15, true);
+        saveSchedule(hospitalCode, gastro.getId(), gastroClinic.getId(), doctorHan.getId(), LocalDate.now().plusDays(2), "上午", 18, 13, false);
+        saveSchedule(hospitalCode, pediatrics.getId(), pedClinic.getId(), doctorSu.getId(), LocalDate.now().plusDays(1), "上午", 24, 18, true);
+        saveSchedule(hospitalCode, ent.getId(), entClinic.getId(), doctorMao.getId(), LocalDate.now().plusDays(2), "下午", 14, 10, false);
+        saveSchedule(hospitalCode, orthopedics.getId(), orthoClinic.getId(), doctorZhou.getId(), LocalDate.now().plusDays(3), "上午", 16, 12, false);
 
         saveRule(hospitalCode, respiratory.getId(), "呼吸内科支持普通号和主任号。发热患者请先测温并佩戴口罩。", "连续高热或呼吸困难请直接急诊评估。");
         saveRule(hospitalCode, neuro.getId(), "神经内科适合头痛、头晕、睡眠障碍等非急症场景。", "突发肢体无力、言语不清请优先急诊。");
         saveRule(hospitalCode, cardio.getId(), "心内科专家号每日限量，热门号源建议提前预约。", "胸痛持续超过 15 分钟请直接急诊胸痛中心。");
+        saveRule(hospitalCode, dermatology.getId(), "皮肤科适合皮疹、瘙痒、湿疹、荨麻疹和痤疮等问题。", "皮疹伴呼吸困难、口唇肿胀或全身严重过敏请优先急诊。");
+        saveRule(hospitalCode, gastro.getId(), "消化内科适合腹痛、腹泻、反酸、恶心呕吐和消化不良。", "剧烈腹痛、呕血黑便或持续脱水请优先急诊。");
+        saveRule(hospitalCode, pediatrics.getId(), "未满 14 岁儿童建议优先儿科就诊。", "儿童高热惊厥、精神差或呼吸困难请立即急诊。");
+        saveRule(hospitalCode, ent.getId(), "耳鼻喉科适合鼻塞流涕、咽痛、耳痛、声音嘶哑等问题。", "异物卡喉或呼吸受限请立即急诊。");
+        saveRule(hospitalCode, orthopedics.getId(), "骨科适合关节疼痛、扭伤、腰腿痛、颈肩痛和疑似骨折。", "明显畸形、开放伤口或无法负重请急诊。");
 
         saveKnowledge(hospitalCode, "呼吸内科导诊", "发热伴咳嗽、咽痛、黄痰时优先推荐呼吸内科。若伴随呼吸困难、血氧下降或高热不退，应提示线下急诊风险。");
         saveKnowledge(hospitalCode, "心内科导诊", "胸闷、胸痛、心慌和高血压患者可优先匹配心内科。活动后胸痛加重或持续超过 15 分钟，应优先急诊胸痛中心。");
+        saveKnowledge(hospitalCode, "皮肤科导诊", "皮肤病、皮疹、瘙痒、湿疹、荨麻疹、痤疮和皮肤过敏优先推荐皮肤科。若皮疹伴随喘憋、喉头紧缩、口唇肿胀或全身风团，应提示急诊处理过敏风险。");
+        saveKnowledge(hospitalCode, "消化内科导诊", "腹痛、腹泻、恶心、呕吐、胃痛、反酸和消化不良优先推荐消化内科。剧烈腹痛、呕血、黑便、持续脱水或意识差应急诊。");
+        saveKnowledge(hospitalCode, "儿科导诊", "儿童发热、咳嗽、腹泻、皮疹等常见问题优先推荐儿科。高热惊厥、精神反应差、呼吸困难或脱水表现需要急诊。");
+        saveKnowledge(hospitalCode, "耳鼻喉科导诊", "鼻塞、流涕、咽痛、扁桃体不适、声音嘶哑、耳痛和听力下降优先推荐耳鼻喉科。异物卡喉或呼吸受限应急诊。");
+        saveKnowledge(hospitalCode, "骨科导诊", "关节疼痛、扭伤、腰腿痛、颈肩痛、运动损伤和疑似骨折优先推荐骨科。明显畸形、开放性损伤或无法负重应急诊。");
         saveKnowledge(hospitalCode, "挂号规则", "热门专家号源采用限量库存机制，系统先预占号源再确认订单，避免高并发下超卖。");
 
         if (isVectorStoreConfigured()) {

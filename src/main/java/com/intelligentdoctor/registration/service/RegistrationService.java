@@ -56,6 +56,8 @@ public class RegistrationService {
         entity.setPatientName(command.patientName());
         entity.setPatientPhone(command.patientPhone());
         entity.setIdCard(command.idCard());
+        entity.setGender(command.gender());
+        entity.setAge(command.age());
         entity.setPatientId(command.patientId());
         entity.setStatus("DRAFT");
         RegistrationDraftEntity saved = draftRepository.save(entity);
@@ -64,7 +66,7 @@ public class RegistrationService {
 
     @Transactional
     public RegistrationOrderView confirm(ConfirmRegistrationRequest request) {
-        RegistrationDraftEntity draft = draftRepository.findById(request.draftId())
+        RegistrationDraftEntity draft = draftRepository.findWithLockById(request.draftId())
                 .orElseThrow(() -> new EntityNotFoundException("registration draft not found"));
 
         RegistrationOrderEntity existingOrder = orderRepository.findByDraftId(draft.getId()).orElse(null);
@@ -79,6 +81,8 @@ public class RegistrationService {
         draft.setPatientName(request.patientName());
         draft.setPatientPhone(request.patientPhone());
         draft.setIdCard(request.idCard());
+        draft.setGender(request.gender());
+        draft.setAge(request.age());
         draft.setStatus("PENDING_CONFIRM");
         draftRepository.save(draft);
 
@@ -114,6 +118,11 @@ public class RegistrationService {
                 .findFirst()
                 .map(this::toView)
                 .orElse(null);
+    }
+
+    @Transactional
+    public void deleteUnconfirmedDraftsBySession(String sessionId) {
+        draftRepository.deleteBySessionIdAndStatusNot(sessionId, "CONFIRMED");
     }
 
     private RegistrationOrderEntity waitForOrderByDraftId(String draftId) {
@@ -170,6 +179,8 @@ public class RegistrationService {
                 entity.getPatientName(),
                 entity.getPatientPhone(),
                 entity.getIdCard(),
+                entity.getGender(),
+                entity.getAge(),
                 entity.getStatus()
         );
     }
@@ -181,6 +192,9 @@ public class RegistrationService {
                 entity.getSessionId(),
                 entity.getPatientName(),
                 entity.getPatientPhone(),
+                entity.getIdCard(),
+                entity.getGender(),
+                entity.getAge(),
                 entity.getDepartmentId(),
                 entity.getClinicRoomId(),
                 entity.getDoctorId(),

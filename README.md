@@ -4,10 +4,24 @@ Intelligent Doctor 是一个智能导诊与挂号演示系统。项目采用 Spr
 
 ## 功能范围
 
-- 患者端: `/`，支持症状导诊、智能挂号、SSE 流式输出和挂号确认。
-- 管理后台: `/admin.html`，支持医院资料导入、向量重建、订单查看和系统状态查看。
+- 患者端: `/`，支持症状导诊、智能挂号、RAG 证据、SSE 流式输出、会话管理和挂号确认。
+- 管理后台: `/admin.html`，通过 `admin/admin` 登录，支持医院资料导入、向量重建、订单查看和系统状态查看。
 - 后端服务: Spring Boot 3.5、Java 17、JPA、MongoDB、Redis、Kafka、OpenAI/Pinecone 可配置接入。
 - 测试交付: 单元测试、集成测试、RAG 检索测试、挂号一致性测试、Redis 热点号源压测脚本。
+
+## 项目结构
+
+- `src/main/java/com/intelligentdoctor/chat`: 患者端对话入口、SSE 编排、会话记忆、单条/全部删除。
+- `src/main/java/com/intelligentdoctor/ai`: Prompt 拼接、AI 网关、LangChain4j AiService、Function Calling 工具定义。
+- `src/main/java/com/intelligentdoctor/knowledge`: 文档切割、Embedding、向量入库、Query 检索粗排和 rerank 精排。
+- `src/main/java/com/intelligentdoctor/registration`: 挂号草稿、患者实名信息、号源预占、订单确认和会话草稿清理。
+- `src/main/java/com/intelligentdoctor/admin`: 后台资料导入、导入任务、后台 Basic 鉴权。
+- `src/main/resources/static`: 患者端和管理后台页面，包含流式输出、等待态、医院风格 UI 和后台登录逻辑。
+- `sample-data`: 内置医院、科室、医生、排班和病症知识库样例。
+- `scripts`: 本地启动、冒烟测试、Redis 热点号源压测脚本。
+- `docs`: 架构、接口、RAG/Agent 范式、部署和演示说明。
+
+核心 Agent 范式为 `react-rag-tool`: 先做意图和 Query 处理，再执行 RAG 检索和工具调用，最后将系统 Prompt、业务 Prompt、历史摘要、RAG 证据和工具结果拼接后发送给大模型。
 
 ## 外部依赖
 
@@ -56,7 +70,7 @@ Copy-Item .env.example .env
 5. 打开页面:
 
 - 患者端: [http://localhost:8080/](http://localhost:8080/)
-- 管理后台: [http://localhost:8080/admin.html](http://localhost:8080/admin.html)
+- 管理后台: [http://localhost:8080/admin.html](http://localhost:8080/admin.html)，账号 `admin`，密码 `admin`
 - 依赖状态: [http://localhost:8080/api/system/profile](http://localhost:8080/api/system/profile)
 
 ## 验收命令
@@ -85,6 +99,7 @@ APP_AI_PROVIDER=openai
 APP_VECTOR_STORE_PROVIDER=pinecone
 APP_STOCK_PROVIDER=redis
 APP_EVENT_PROVIDER=kafka
+APP_AGENT_PARADIGM=react-rag-tool
 OPENAI_API_KEY=change-me
 OPENAI_EMBEDDING_API_KEY=change-me
 PINECONE_API_KEY=change-me

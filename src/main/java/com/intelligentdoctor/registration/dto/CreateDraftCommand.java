@@ -15,6 +15,8 @@ public record CreateDraftCommand(
         String patientName,
         String patientPhone,
         String idCard,
+        String gender,
+        Integer age,
         String patientId
 ) {
 }

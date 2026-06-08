@@ -39,7 +39,7 @@ flowchart LR
 
 1. 患者输入症状。
 2. `ChatOrchestratorService` 调用 `AiGateway` 得到症状归纳、可能方向、推荐科室和风险提示。
-3. 挂号模式下调用 `KnowledgeSearchService` 做 RAG 召回，并记录 `ragSearch` 工具 Trace。
+3. 诊断和挂号模式都会调用 `KnowledgeSearchService` 做 RAG 召回；同意保存历史时记录 `ragSearch` 工具 Trace。
 4. `AgentToolService` 查询科室、诊室、医生和排班，自动生成挂号草稿。
 5. SSE 输出 `meta`、`chunk`、`result` 或 `error` 事件。
 6. 用户确认挂号后，`RegistrationService` 执行库存预占。
@@ -49,7 +49,7 @@ flowchart LR
 ## 数据存储
 
 - MySQL: 医院主数据、排班、挂号规则、导入任务、挂号草稿、挂号订单、知识分块。
-- MongoDB: 会话、消息、Prompt Trace、Tool Trace。
+- MongoDB: 用户同意保存时记录会话、消息、Prompt Trace、Tool Trace。
 - Redis: 号源库存 Key、预占 Token。
 - Kafka: 挂号预占成功事件，可切换成本地同步事件。
 - Pinecone: 正式向量检索；测试和本地离线演示可使用内存向量库。

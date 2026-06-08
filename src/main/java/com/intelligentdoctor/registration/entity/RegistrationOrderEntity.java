@@ -57,6 +57,12 @@ public class RegistrationOrderEntity extends BaseEntity {
     @Column(nullable = false, length = 32)
     private String idCard;
 
+    @Column(nullable = false, length = 16)
+    private String gender;
+
+    @Column(nullable = false)
+    private Integer age;
+
     @Column(nullable = false, length = 32)
     private String status;
 
@@ -166,6 +172,22 @@ public class RegistrationOrderEntity extends BaseEntity {
 
     public void setIdCard(String idCard) {
         this.idCard = idCard;
+    }
+
+    public String getGender() {
+        return gender;
+    }
+
+    public void setGender(String gender) {
+        this.gender = gender;
+    }
+
+    public Integer getAge() {
+        return age;
+    }
+
+    public void setAge(Integer age) {
+        this.age = age;
     }
 
     public String getStatus() {

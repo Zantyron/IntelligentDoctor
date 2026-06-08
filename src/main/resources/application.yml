@@ -64,3 +64,5 @@ app:
   stream:
     chunk-size: ${APP_STREAM_CHUNK_SIZE:26}
     chunk-delay-millis: ${APP_STREAM_CHUNK_DELAY_MILLIS:35}
+  agent:
+    paradigm: ${APP_AGENT_PARADIGM:react-rag-tool}

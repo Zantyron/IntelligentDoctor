@@ -34,6 +34,7 @@
 ```
 
 返回 `text/event-stream`，事件包括 `meta`、`chunk`、`result`、`error`。
+诊断模式同样会执行 RAG 检索，并将精排知识片段拼入 Prompt。
 
 ## 智能挂号导诊
 
@@ -58,7 +59,9 @@
   "idempotencyKey": "client-request-id",
   "patientName": "张三",
   "patientPhone": "13800000000",
-  "idCard": "310101199001011234"
+  "idCard": "310101199001011234",
+  "gender": "男",
+  "age": 36
 }
 ```
 
@@ -69,6 +72,14 @@
 `GET /api/registration/orders?hospitalId=hospital-demo`
 
 `GET /api/admin/orders?hospitalId=hospital-demo`
+
+## 后台鉴权
+
+`/api/admin/**` 需要 Basic Auth:
+
+```text
+Authorization: Basic base64(admin:admin)
+```
 
 ## 上传医院资料
 

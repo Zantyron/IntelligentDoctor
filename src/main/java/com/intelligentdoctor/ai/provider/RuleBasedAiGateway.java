@@ -49,9 +49,17 @@ public class RuleBasedAiGateway implements AiGateway {
             conditions.add("消化系统相关不适");
             departments.add("消化内科");
         }
-        if (containsAny(normalized, "皮疹", "过敏", "瘙痒")) {
+        if (containsAny(normalized, "皮肤", "皮肤病", "皮疹", "过敏", "瘙痒", "湿疹", "痘", "荨麻疹")) {
             conditions.add("过敏或皮肤问题");
             departments.add("皮肤科");
+        }
+        if (containsAny(normalized, "鼻塞", "耳痛", "咽痛", "喉咙", "嗓子")) {
+            conditions.add("耳鼻喉相关不适");
+            departments.add("耳鼻喉科");
+        }
+        if (containsAny(normalized, "关节", "扭伤", "腰痛", "颈椎", "骨折")) {
+            conditions.add("骨科或运动损伤相关问题");
+            departments.add("骨科");
         }
         if (containsAny(normalized, "儿童", "小孩", "宝宝")) {
             departments.add("儿科");
@@ -108,7 +116,7 @@ public class RuleBasedAiGateway implements AiGateway {
             } else {
                 snippets.stream().limit(3).forEach(snippet -> reply.append("- ").append(snippet.text()).append("\n"));
             }
-            reply.append("下一步: 补充姓名、手机号和身份证号后即可确认挂号。\n");
+            reply.append("下一步: 补充姓名、手机号、身份证号、性别和年龄后即可确认挂号。\n");
             int order = 0;
             for (String department : analysis.suggestedDepartments()) {
                 cards.add(new RecommendationCard(

@@ -75,6 +75,8 @@ class IntelligentDoctorApplicationTests {
                 null,
                 null,
                 null,
+                null,
+                null,
                 null
         ));
         assertThat(draft.draftId()).isNotBlank();

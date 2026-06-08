@@ -23,6 +23,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -30,7 +31,7 @@ import static org.mockito.Mockito.when;
 class ChatHistoryServiceTests {
 
     @Test
-    void storeChatPersistsSessionMessagesAndPromptTraceEvenWithoutConsent() {
+    void storeChatSkipsPersistenceWithoutConsent() {
         ChatSessionMongoRepository sessionRepository = mock(ChatSessionMongoRepository.class);
         ChatMessageMongoRepository messageRepository = mock(ChatMessageMongoRepository.class);
         PromptTraceMongoRepository promptTraceRepository = mock(PromptTraceMongoRepository.class);
@@ -61,14 +62,53 @@ class ChatHistoryServiceTests {
                 )
         );
 
+        verify(sessionRepository, never()).save(any(ChatSessionDocument.class));
+        verify(messageRepository, never()).save(any(ChatMessageDocument.class));
+        verify(promptTraceRepository, never()).save(any(PromptTraceDocument.class));
+    }
+
+    @Test
+    void storeChatPersistsSessionMessagesAndPromptTraceWithConsent() {
+        ChatSessionMongoRepository sessionRepository = mock(ChatSessionMongoRepository.class);
+        ChatMessageMongoRepository messageRepository = mock(ChatMessageMongoRepository.class);
+        PromptTraceMongoRepository promptTraceRepository = mock(PromptTraceMongoRepository.class);
+        ToolTraceMongoRepository toolTraceRepository = mock(ToolTraceMongoRepository.class);
+        ChatHistoryService service = new ChatHistoryService(
+                sessionRepository,
+                messageRepository,
+                promptTraceRepository,
+                toolTraceRepository,
+                new JsonUtils(new ObjectMapper())
+        );
+        when(sessionRepository.findBySessionId("session-1")).thenReturn(Optional.empty());
+
+        service.storeChat(
+                "session-1",
+                "hospital-demo",
+                ChatMode.DIAGNOSIS,
+                true,
+                List.of(new ChatMessageInput("user", "鍙戠儹鍜冲椊涓夊ぉ")),
+                "寤鸿鍛煎惛鍐呯灏辫瘖",
+                new AiPromptContext(
+                        ChatMode.DIAGNOSIS,
+                        "system prompt",
+                        "business prompt",
+                        "rag prompt",
+                        "tool prompt",
+                        List.of("evidence")
+                )
+        );
+
         ArgumentCaptor<ChatSessionDocument> sessionCaptor = ArgumentCaptor.forClass(ChatSessionDocument.class);
         ArgumentCaptor<PromptTraceDocument> promptCaptor = ArgumentCaptor.forClass(PromptTraceDocument.class);
+        ArgumentCaptor<List<ChatMessageDocument>> messageCaptor = ArgumentCaptor.forClass(List.class);
         verify(sessionRepository).save(sessionCaptor.capture());
-        verify(messageRepository, times(2)).save(any(ChatMessageDocument.class));
+        verify(messageRepository).saveAll(messageCaptor.capture());
         verify(promptTraceRepository).save(promptCaptor.capture());
 
         assertThat(sessionCaptor.getValue().getSessionId()).isEqualTo("session-1");
-        assertThat(sessionCaptor.getValue().isConsentToStoreHistory()).isFalse();
+        assertThat(sessionCaptor.getValue().isConsentToStoreHistory()).isTrue();
+        assertThat(messageCaptor.getValue()).hasSize(2);
         assertThat(promptCaptor.getValue().getPromptContent())
                 .contains("system prompt", "business prompt", "rag prompt", "tool prompt");
     }

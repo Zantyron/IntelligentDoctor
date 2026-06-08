@@ -6,6 +6,11 @@ spring:
     username: ${SPRING_DATASOURCE_USERNAME}
     password: ${SPRING_DATASOURCE_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: ${DB_POOL_MAX_SIZE:50}
+      minimum-idle: ${DB_POOL_MIN_IDLE:10}
+      connection-timeout: ${DB_POOL_CONNECTION_TIMEOUT_MS:5000}
+      leak-detection-threshold: ${DB_POOL_LEAK_DETECTION_MS:10000}
   jpa:
     hibernate:
       ddl-auto: validate
@@ -19,5 +24,38 @@ spring:
       host: ${REDIS_HOST}
       port: ${REDIS_PORT:6379}
       password: ${REDIS_PASSWORD:}
+      lettuce:
+        pool:
+          max-active: ${REDIS_POOL_MAX_ACTIVE:20}
+          max-idle: ${REDIS_POOL_MAX_IDLE:10}
+          min-idle: ${REDIS_POOL_MIN_IDLE:5}
+          max-wait: ${REDIS_POOL_MAX_WAIT:-1ms}
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
+    producer:
+      acks: all
+      retries: 3
+    consumer:
+      enable-auto-commit: false
+      max-poll-records: ${KAFKA_MAX_POLL_RECORDS:50}
+    listener:
+      concurrency: ${KAFKA_LISTENER_CONCURRENCY:2}
+
+server:
+  error:
+    include-message: never
+
+app:
+  admin:
+    username: ${ADMIN_USERNAME:admin}
+    password: ${ADMIN_PASSWORD:admin}
+  stream:
+    timeout-millis: ${APP_STREAM_TIMEOUT_MILLIS:300000}
+  rate-limit:
+    enabled: ${APP_RATE_LIMIT_ENABLED:true}
+    max-requests: ${APP_RATE_LIMIT_MAX_REQUESTS:20}
+    window-seconds: ${APP_RATE_LIMIT_WINDOW_SECONDS:60}
+  executor:
+    core-pool-size: ${APP_EXECUTOR_CORE_POOL_SIZE:6}
+    max-pool-size: ${APP_EXECUTOR_MAX_POOL_SIZE:12}
+    queue-capacity: ${APP_EXECUTOR_QUEUE_CAPACITY:200}

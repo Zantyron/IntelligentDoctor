@@ -3,17 +3,41 @@ package com.intelligentdoctor.config;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.intelligentdoctor.admin.security.AdminAuthInterceptor;
+import com.intelligentdoctor.chat.security.ChatRateLimitInterceptor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 import java.util.concurrent.Executor;
 
 @EnableAsync
 @Configuration
-public class AppConfig {
+public class AppConfig implements WebMvcConfigurer {
+
+    private final AdminAuthInterceptor adminAuthInterceptor;
+    private final ChatRateLimitInterceptor chatRateLimitInterceptor;
+    private final AppProperties properties;
+
+    public AppConfig(AdminAuthInterceptor adminAuthInterceptor,
+                     ChatRateLimitInterceptor chatRateLimitInterceptor,
+                     AppProperties properties) {
+        this.adminAuthInterceptor = adminAuthInterceptor;
+        this.chatRateLimitInterceptor = chatRateLimitInterceptor;
+        this.properties = properties;
+    }
+
+    @Override
+    public void addInterceptors(InterceptorRegistry registry) {
+        registry.addInterceptor(adminAuthInterceptor)
+                .addPathPatterns("/api/admin/**");
+        registry.addInterceptor(chatRateLimitInterceptor)
+                .addPathPatterns("/api/chat/diagnosis/stream", "/api/chat/registration/stream");
+    }
 
     @Bean
     public RestClient.Builder restClientBuilder() {
@@ -32,9 +56,9 @@ public class AppConfig {
     public Executor applicationTaskExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
         executor.setThreadNamePrefix("intelligent-doctor-");
-        executor.setCorePoolSize(6);
-        executor.setMaxPoolSize(12);
-        executor.setQueueCapacity(200);
+        executor.setCorePoolSize(properties.getExecutor().getCorePoolSize());
+        executor.setMaxPoolSize(properties.getExecutor().getMaxPoolSize());
+        executor.setQueueCapacity(properties.getExecutor().getQueueCapacity());
         executor.initialize();
         return executor;
     }

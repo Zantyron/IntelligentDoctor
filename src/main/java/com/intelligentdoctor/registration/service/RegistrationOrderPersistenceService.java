@@ -55,6 +55,8 @@ public class RegistrationOrderPersistenceService {
         order.setPatientName(draft.getPatientName());
         order.setPatientPhone(draft.getPatientPhone());
         order.setIdCard(draft.getIdCard());
+        order.setGender(draft.getGender());
+        order.setAge(draft.getAge());
         order.setStatus("CONFIRMED");
         order.setSymptomSummary(draft.getSymptomSummary());
 

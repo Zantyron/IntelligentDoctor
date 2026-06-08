@@ -170,12 +170,6 @@ public class OpenAiAiGateway implements AiGateway {
         if (modelError != null) {
             metadata.put("modelError", modelError.getClass().getSimpleName() + ": " + modelError.getMessage());
         }
-        metadata.put("promptTrace", Map.of(
-                "systemPrompt", promptContext.systemPrompt(),
-                "businessPrompt", promptContext.businessPrompt(),
-                "ragPrompt", promptContext.ragPrompt(),
-                "toolPrompt", promptContext.toolPrompt()
-        ));
 
         return new ChatStreamResult(
                 fallbackIfBlank(reply, mode),

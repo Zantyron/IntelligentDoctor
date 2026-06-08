@@ -3,56 +3,85 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>智能导诊后台</title>
-    <link rel="stylesheet" href="/styles.css">
+    <meta name="description" content="智能导诊后台管理 - 医院知识与数据导入">
+    <meta name="theme-color" content="#0d9488">
+    <title>管理后台 · Intelligent Doctor Admin</title>
+    <link rel="stylesheet" href="/styles.css?v=20260608">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
 <body class="admin-body">
-<div class="mesh"></div>
+
+<!-- Toast Container -->
+<div class="toast-container" id="toastContainer" aria-live="polite"></div>
+
 <main class="admin-shell">
     <header class="admin-hero">
         <div>
-            <div class="eyebrow">ADMIN CONSOLE</div>
-            <h1>医院知识与组织结构导入</h1>
-            <p>上传医院主数据和知识文档，查看 MySQL 持久化、向量重建、失败原因和重试结果。</p>
+            <div class="eyebrow">Admin Console</div>
+            <h1>医院知识与数据管理</h1>
+            <p>上传医院主数据和知识文档，管理向量索引，查看导入任务与挂号订单。</p>
         </div>
         <a href="/" class="admin-link">返回患者端</a>
     </header>
 
     <section class="admin-grid">
-        <article class="admin-card upload-card">
-            <h2>资料导入</h2>
-            <p>支持 CSV / Excel / Markdown / PDF。CSV 和 Excel 可用 type 列导入医院、科室、诊室、医生、排班、挂号规则和知识片段。</p>
+        <!-- Import Card -->
+        <article class="admin-card">
+            <h2>📂 资料导入</h2>
+            <p>支持 CSV / Excel / Markdown / PDF。CSV 和 Excel 可用 <code>type</code> 列导入医院、科室、诊室、医生、排班、挂号规则和知识片段。</p>
             <form id="uploadForm" class="upload-form">
                 <input type="file" id="uploadFile" accept=".csv,.xlsx,.xls,.md,.markdown,.pdf,.txt" required>
                 <button type="submit">上传并导入</button>
             </form>
-            <button id="reindexBtn" class="ghost-btn">重建向量索引</button>
+            <div style="margin-top:10px">
+                <button id="reindexBtn" class="ghost-btn">🔄 重建向量索引</button>
+            </div>
             <div id="importFeedback" class="status-box">等待操作</div>
         </article>
 
-        <article class="admin-card profile-card">
-            <h2>系统配置</h2>
-            <div id="systemProfile" class="status-box">加载中...</div>
+        <!-- System Profile Card -->
+        <article class="admin-card">
+            <h2>⚙ 系统配置</h2>
+            <p>当前运行时的系统参数与组件状态。</p>
+            <div id="systemProfile" class="status-box">
+                <div style="display:flex;align-items:center;gap:8px;color:var(--muted)">
+                    <span style="width:16px;height:16px;border:2px solid var(--primary-soft);border-top-color:var(--primary);border-radius:50%;animation:spin 0.6s linear infinite;display:inline-block;"></span>
+                    加载中...
+                </div>
+            </div>
         </article>
 
-        <article class="admin-card list-card">
+        <!-- Import Jobs Card -->
+        <article class="admin-card">
             <div class="card-head">
-                <h2>导入任务</h2>
+                <h2>📋 导入任务</h2>
                 <button id="refreshImports" class="tiny-btn">刷新</button>
             </div>
-            <div id="importList" class="list-wrap"></div>
+            <div id="importList" class="list-wrap">
+                <div class="skeleton skeleton-text" style="width:70%"></div>
+                <div class="skeleton skeleton-text" style="width:50%"></div>
+                <div class="skeleton skeleton-text" style="width:60%"></div>
+            </div>
         </article>
 
-        <article class="admin-card list-card">
+        <!-- Orders Card -->
+        <article class="admin-card">
             <div class="card-head">
-                <h2>挂号订单</h2>
+                <h2>🎫 挂号订单</h2>
                 <button id="refreshOrders" class="tiny-btn">刷新</button>
             </div>
-            <div id="orderList" class="list-wrap"></div>
+            <div id="orderList" class="list-wrap">
+                <div class="skeleton skeleton-text" style="width:65%"></div>
+                <div class="skeleton skeleton-text" style="width:45%"></div>
+                <div class="skeleton skeleton-text" style="width:55%"></div>
+            </div>
         </article>
     </section>
 </main>
-<script src="/config.js"></script>
-<script src="/admin.js"></script>
+
+<script src="/config.js?v=20260608"></script>
+<script src="/admin.js?v=20260608"></script>
 </body>
 </html>

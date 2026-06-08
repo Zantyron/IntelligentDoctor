@@ -68,7 +68,12 @@ public class ProviderStatusService {
                                 "indexHost", properties.getVectorStore().getPinecone().getIndexHost(),
                                 "namespacePrefix", properties.getVectorStore().getNamespacePrefix(),
                                 "apiVersion", properties.getVectorStore().getPinecone().getApiVersion()
-                        ))
+                        )),
+                "agent", Map.of(
+                        "status", "enabled",
+                        "paradigm", properties.getAgent().getParadigm(),
+                        "flow", "analyze -> query processing -> vector coarse retrieval -> rerank -> tool actions -> prompt augmentation -> model response"
+                )
         );
     }
 

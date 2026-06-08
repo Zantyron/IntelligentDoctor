@@ -51,10 +51,13 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
 public class AdminImportService {
+
+    private static final Set<String> ALLOWED_FILE_TYPES = Set.of("csv", "xlsx", "xls", "pdf", "md", "markdown", "txt");
 
     private final ImportJobRepository importJobRepository;
     private final HospitalRepository hospitalRepository;
@@ -102,6 +105,9 @@ public class AdminImportService {
         job.setHospitalId(hospitalId);
         job.setFileName(Objects.requireNonNullElse(file.getOriginalFilename(), "upload.dat"));
         job.setFileType(detectFileType(job.getFileName()));
+        if (!ALLOWED_FILE_TYPES.contains(job.getFileType())) {
+            throw new IllegalArgumentException("不支持的文件类型: " + job.getFileType());
+        }
         job.setStatus("PENDING");
         job.setRetryCount(0);
         job = importJobRepository.save(job);
@@ -334,6 +340,7 @@ public class AdminImportService {
     }
 
     private ImportResultSummary importTextualKnowledge(String hospitalId, String sourceName, String content) {
+        knowledgeChunkRepository.deleteByHospitalIdAndSourceName(hospitalId, truncate(sourceName, 128));
         List<KnowledgeChunkEntity> chunks = createChunks(hospitalId, sourceName, sourceName, content,
                 Map.of("sourceName", sourceName, "type", "document"));
         knowledgeChunkRepository.saveAll(chunks);
@@ -393,13 +400,18 @@ public class AdminImportService {
 
     private void upsertSchedule(String hospitalId, Map<String, String> row, Map<String, String> departmentIds,
                                 Map<String, String> clinicIds, Map<String, String> doctorIds) {
-        ScheduleSlotEntity entity = new ScheduleSlotEntity();
+        String doctorId = resolveId(row, doctorIds, "doctorId", "doctorCode");
+        LocalDate slotDate = LocalDate.parse(require(row, "slotDate"));
+        String period = require(row, "period");
+        ScheduleSlotEntity entity = scheduleSlotRepository
+                .findByHospitalIdAndDoctorIdAndSlotDateAndPeriod(hospitalId, doctorId, slotDate, period)
+                .orElseGet(ScheduleSlotEntity::new);
         entity.setHospitalId(hospitalId);
         entity.setDepartmentId(resolveId(row, departmentIds, "departmentId", "departmentCode"));
         entity.setClinicRoomId(resolveId(row, clinicIds, "clinicRoomId", "clinicCode"));
-        entity.setDoctorId(resolveId(row, doctorIds, "doctorId", "doctorCode"));
-        entity.setSlotDate(LocalDate.parse(require(row, "slotDate")));
-        entity.setPeriod(require(row, "period"));
+        entity.setDoctorId(doctorId);
+        entity.setSlotDate(slotDate);
+        entity.setPeriod(period);
         int stock = parseInt(value(row, "stockTotal"), 10);
         entity.setStockTotal(stock);
         entity.setStockAvailable(parseInt(value(row, "stockAvailable"), stock));
@@ -472,16 +484,14 @@ public class AdminImportService {
 
     private Map<String, String> loadClinicIds(String hospitalId) {
         Map<String, String> ids = new HashMap<>();
-        clinicRoomRepository.findAll().stream()
-                .filter(entity -> hospitalId.equals(entity.getHospitalId()))
+        clinicRoomRepository.findByHospitalId(hospitalId).stream()
                 .forEach(entity -> ids.put(entity.getClinicCode(), entity.getId()));
         return ids;
     }
 
     private Map<String, String> loadDoctorIds(String hospitalId) {
         Map<String, String> ids = new HashMap<>();
-        doctorRepository.findAll().stream()
-                .filter(entity -> hospitalId.equals(entity.getHospitalId()))
+        doctorRepository.findByHospitalId(hospitalId).stream()
                 .forEach(entity -> ids.put(entity.getDoctorCode(), entity.getId()));
         return ids;
     }

@@ -6,6 +6,7 @@ import com.intelligentdoctor.ai.dto.TriageAnalysis;
 import com.intelligentdoctor.ai.prompt.PromptTemplateService;
 import com.intelligentdoctor.ai.provider.AiGateway;
 import com.intelligentdoctor.ai.tools.AgentToolService;
+import com.intelligentdoctor.chat.dto.ChatMessageInput;
 import com.intelligentdoctor.catalog.entity.DepartmentEntity;
 import com.intelligentdoctor.catalog.service.CatalogQueryService;
 import com.intelligentdoctor.chat.dto.ChatStreamRequest;
@@ -57,20 +58,27 @@ public class ChatOrchestratorService {
     }
 
     public SseEmitter stream(ChatMode mode, ChatStreamRequest request) {
-        SseEmitter emitter = new SseEmitter(0L);
+        SseEmitter emitter = new SseEmitter(properties.getStream().getTimeoutMillis());
+        emitter.onTimeout(emitter::complete);
+        emitter.onError(error -> emitter.complete());
         executor.execute(() -> {
             try {
                 String hospitalId = resolveHospitalId(request.hospitalId());
-                TriageAnalysis analysis = aiGateway.analyze(mode, request.messages());
-                List<KnowledgeSnippet> snippets = mode == ChatMode.REGISTRATION
-                        ? knowledgeSearchService.search(hospitalId, analysis.symptomSummary(), 5)
-                        : List.of();
-                if (mode == ChatMode.REGISTRATION) {
+                List<ChatMessageInput> modelMessages = chatHistoryService.mergeWithStoredHistory(
+                        request.sessionId(), request.messages());
+                TriageAnalysis analysis = aiGateway.analyze(mode, modelMessages);
+                List<KnowledgeSnippet> snippets = knowledgeSearchService.search(hospitalId, analysis.symptomSummary(), 5);
+                if (request.consentToStoreHistory()) {
                     chatHistoryService.storeToolTrace(request.sessionId(), "ragSearch", Map.of(
                             "hospitalId", hospitalId,
+                            "mode", mode.name(),
                             "query", analysis.symptomSummary(),
-                            "limit", 5
-                    ), snippets);
+                            "limit", 5,
+                            "pipeline", "queryProcessing -> vector coarse retrieval -> lexical rerank -> prompt augmentation"
+                    ), Map.of(
+                            "snippets", snippets,
+                            "trace", knowledgeSearchService.explainSearch(analysis.symptomSummary(), snippets)
+                    ));
                 }
 
                 List<String> evidence = snippets.stream().map(KnowledgeSnippet::text).toList();
@@ -78,7 +86,7 @@ public class ChatOrchestratorService {
                 RegistrationDraftView autoDraft = mode == ChatMode.REGISTRATION
                         ? createDraftFromRecommendation(request.sessionId(), hospitalId, analysis)
                         : null;
-                ChatStreamResult result = aiGateway.composeReply(mode, analysis, snippets, promptContext, request.messages());
+                ChatStreamResult result = aiGateway.composeReply(mode, analysis, snippets, promptContext, modelMessages);
                 ChatStreamResult enriched = enrichResult(result, autoDraft);
 
                 emitPayload(emitter, "meta", "开始生成导诊结果", Map.of("mode", mode.name(), "hospitalId", hospitalId));
@@ -121,6 +129,8 @@ public class ChatOrchestratorService {
         draft.put("patientName", draftView.patientName() == null ? "" : draftView.patientName());
         draft.put("patientPhone", draftView.patientPhone() == null ? "" : draftView.patientPhone());
         draft.put("idCard", draftView.idCard() == null ? "" : draftView.idCard());
+        draft.put("gender", draftView.gender() == null ? "" : draftView.gender());
+        draft.put("age", draftView.age() == null ? "" : draftView.age());
         draft.put("status", draftView.status());
         metadata.put("draft", draft);
         return new ChatStreamResult(
@@ -167,6 +177,8 @@ public class ChatOrchestratorService {
                 schedules.get(0).id(),
                 schedules.get(0).slotDate(),
                 schedules.get(0).period(),
+                null,
+                null,
                 null,
                 null,
                 null,

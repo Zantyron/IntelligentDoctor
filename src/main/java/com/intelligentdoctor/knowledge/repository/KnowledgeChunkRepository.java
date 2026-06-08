@@ -8,4 +8,5 @@ import java.util.List;
 public interface KnowledgeChunkRepository extends JpaRepository<KnowledgeChunkEntity, String> {
     List<KnowledgeChunkEntity> findByHospitalId(String hospitalId);
     void deleteByHospitalId(String hospitalId);
+    void deleteByHospitalIdAndSourceName(String hospitalId, String sourceName);
 }

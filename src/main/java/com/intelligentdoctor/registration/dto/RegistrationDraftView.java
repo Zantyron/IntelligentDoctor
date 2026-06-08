@@ -15,6 +15,8 @@ public record RegistrationDraftView(
         String patientName,
         String patientPhone,
         String idCard,
+        String gender,
+        Integer age,
         String status
 ) {
 }

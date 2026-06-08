@@ -17,6 +17,20 @@ function Invoke-Json($Method, $Path, $Body = $null) {
     Invoke-RestMethod @params
 }
 
+function Invoke-AdminJson($Method, $Path, $Body = $null) {
+    $token = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes("admin:admin"))
+    $params = @{
+        Method = $Method
+        Uri = "${BaseUrl}${Path}"
+        Headers = @{ Accept = "application/json"; Authorization = "Basic $token" }
+    }
+    if ($null -ne $Body) {
+        $params.ContentType = "application/json; charset=utf-8"
+        $params.Body = ($Body | ConvertTo-Json -Depth 8)
+    }
+    Invoke-RestMethod @params
+}
+
 Write-Host "Checking system profile..." -ForegroundColor Cyan
 $profile = Invoke-Json GET "/api/system/profile"
 if (-not $profile.success) { throw "System profile failed." }
@@ -58,7 +72,13 @@ $order = Invoke-Json POST "/api/registration/confirm" @{
     patientName = "张三"
     patientPhone = "13800000000"
     idCard = "310101199001011234"
+    gender = "男"
+    age = 36
 }
 if (-not $order.data.orderNo) { throw "Registration order was not created." }
+
+Write-Host "Checking admin API authentication..." -ForegroundColor Cyan
+$imports = Invoke-AdminJson GET "/api/admin/imports"
+if (-not $imports.success) { throw "Admin imports endpoint failed." }
 
 Write-Host "Smoke test passed. OrderNo=$($order.data.orderNo)" -ForegroundColor Green

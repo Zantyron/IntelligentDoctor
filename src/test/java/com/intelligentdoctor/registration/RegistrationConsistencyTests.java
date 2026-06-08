@@ -47,6 +47,8 @@ class RegistrationConsistencyTests {
                 null,
                 null,
                 null,
+                null,
+                null,
                 null
         ));
         var request = new ConfirmRegistrationRequest(
@@ -55,7 +57,9 @@ class RegistrationConsistencyTests {
                 "same-confirm-request",
                 "张三",
                 "13800000000",
-                "310101199001011234"
+                "310101199001011234",
+                "男",
+                36
         );
 
         var first = registrationService.confirm(request);
