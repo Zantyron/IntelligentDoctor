@@ -1,6 +1,8 @@
 HELP.md
 .env
 .codex/
+.claude/
+docs/optimization-report.md
 target/
 data/
 logs/
