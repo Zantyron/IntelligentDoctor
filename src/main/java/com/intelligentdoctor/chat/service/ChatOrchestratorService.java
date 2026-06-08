@@ -86,11 +86,19 @@ public class ChatOrchestratorService {
                 RegistrationDraftView autoDraft = mode == ChatMode.REGISTRATION
                         ? createDraftFromRecommendation(request.sessionId(), hospitalId, analysis)
                         : null;
-                ChatStreamResult result = aiGateway.composeReply(mode, analysis, snippets, promptContext, modelMessages);
+                emitPayload(emitter, "meta", "开始生成导诊结果", Map.of("mode", mode.name(), "hospitalId", hospitalId));
+                StringBuilder streamedReply = new StringBuilder();
+                ChatStreamResult result = aiGateway.composeReplyStreaming(mode, analysis, snippets, promptContext, modelMessages, token -> {
+                    try {
+                        streamedReply.append(token);
+                        emitPayload(emitter, "chunk", token, Map.of());
+                    } catch (IOException ex) {
+                        throw new IllegalStateException("Failed to stream AI token", ex);
+                    }
+                });
                 ChatStreamResult enriched = enrichResult(result, autoDraft);
 
-                emitPayload(emitter, "meta", "开始生成导诊结果", Map.of("mode", mode.name(), "hospitalId", hospitalId));
-                streamText(emitter, enriched.reply());
+                streamText(emitter, remainingText(enriched.reply(), streamedReply));
                 emitPayload(emitter, "result", "", Map.of(
                         "summary", enriched.summary(),
                         "possibleConditions", enriched.possibleConditions(),
@@ -187,12 +195,29 @@ public class ChatOrchestratorService {
     }
 
     private void streamText(SseEmitter emitter, String text) throws IOException, InterruptedException {
+        if (text == null || text.isBlank()) {
+            return;
+        }
         int chunkSize = properties.getStream().getChunkSize();
         for (int start = 0; start < text.length(); start += chunkSize) {
             int end = Math.min(text.length(), start + chunkSize);
             emitPayload(emitter, "chunk", text.substring(start, end), Map.of());
             Thread.sleep(properties.getStream().getChunkDelayMillis());
         }
+    }
+
+    private String remainingText(String fullText, StringBuilder streamedReply) {
+        if (fullText == null || fullText.isBlank()) {
+            return "";
+        }
+        String streamed = streamedReply.toString();
+        if (streamed.isBlank()) {
+            return fullText;
+        }
+        if (fullText.startsWith(streamed)) {
+            return fullText.substring(streamed.length());
+        }
+        return "";
     }
 
     private void emitPayload(SseEmitter emitter, String type, String content, Map<String, Object> metadata) throws IOException {

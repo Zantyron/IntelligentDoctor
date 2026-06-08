@@ -8,6 +8,7 @@ import com.intelligentdoctor.chat.dto.ChatStreamResult;
 import com.intelligentdoctor.chat.model.ChatMode;
 
 import java.util.List;
+import java.util.function.Consumer;
 
 public interface AiGateway {
 
@@ -20,4 +21,17 @@ public interface AiGateway {
             AiPromptContext promptContext,
             List<ChatMessageInput> messages
     );
+
+    default ChatStreamResult composeReplyStreaming(
+            ChatMode mode,
+            TriageAnalysis analysis,
+            List<KnowledgeSnippet> snippets,
+            AiPromptContext promptContext,
+            List<ChatMessageInput> messages,
+            Consumer<String> tokenConsumer
+    ) {
+        ChatStreamResult result = composeReply(mode, analysis, snippets, promptContext, messages);
+        tokenConsumer.accept(result.reply());
+        return result;
+    }
 }

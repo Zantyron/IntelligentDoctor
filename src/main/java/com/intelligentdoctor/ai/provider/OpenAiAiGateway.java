@@ -21,12 +21,21 @@ import dev.langchain4j.model.openai.OpenAiChatModel;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 
 @Component
 @ConditionalOnProperty(prefix = "app.ai", name = "provider", havingValue = "openai", matchIfMissing = true)
@@ -35,10 +44,14 @@ public class OpenAiAiGateway implements AiGateway {
     private final AppProperties properties;
     private final JsonUtils jsonUtils;
     private final ChatModel chatModel;
+    private final HttpClient httpClient;
 
     public OpenAiAiGateway(AppProperties properties, JsonUtils jsonUtils) {
         this.properties = properties;
         this.jsonUtils = jsonUtils;
+        this.httpClient = HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(20))
+                .build();
         this.chatModel = OpenAiChatModel.builder()
                 .baseUrl(properties.getAi().getBaseUrl())
                 .apiKey(properties.getAi().resolvedApiKey())
@@ -98,6 +111,25 @@ public class OpenAiAiGateway implements AiGateway {
                                          List<KnowledgeSnippet> snippets,
                                          AiPromptContext promptContext,
                                          List<ChatMessageInput> messages) {
+        return composeReplyInternal(mode, analysis, snippets, promptContext, messages, null);
+    }
+
+    @Override
+    public ChatStreamResult composeReplyStreaming(ChatMode mode,
+                                                  TriageAnalysis analysis,
+                                                  List<KnowledgeSnippet> snippets,
+                                                  AiPromptContext promptContext,
+                                                  List<ChatMessageInput> messages,
+                                                  Consumer<String> tokenConsumer) {
+        return composeReplyInternal(mode, analysis, snippets, promptContext, messages, tokenConsumer);
+    }
+
+    private ChatStreamResult composeReplyInternal(ChatMode mode,
+                                                  TriageAnalysis analysis,
+                                                  List<KnowledgeSnippet> snippets,
+                                                  AiPromptContext promptContext,
+                                                  List<ChatMessageInput> messages,
+                                                  Consumer<String> tokenConsumer) {
         ensureConfigured();
         List<String> evidence = snippets.stream()
                 .map(snippet -> "%s（相似度 %.3f）：%s".formatted(snippet.sourceName(), snippet.score(), snippet.text()))
@@ -141,10 +173,23 @@ public class OpenAiAiGateway implements AiGateway {
         String reply;
         Exception modelError = null;
         try {
-            reply = chatModel.chat(prompt).aiMessage().text();
+            reply = tokenConsumer == null
+                    ? chatModel.chat(prompt).aiMessage().text()
+                    : streamChatCompletion(composePrompt, messages, tokenConsumer);
         } catch (Exception ex) {
             modelError = ex;
-            reply = fallbackIfBlank("", mode);
+            try {
+                reply = chatModel.chat(prompt).aiMessage().text();
+                if (tokenConsumer != null) {
+                    tokenConsumer.accept(reply);
+                }
+            } catch (Exception fallbackEx) {
+                modelError = fallbackEx;
+                reply = fallbackIfBlank("", mode);
+                if (tokenConsumer != null) {
+                    tokenConsumer.accept(reply);
+                }
+            }
         }
 
         List<RecommendationCard> cards = mode == ChatMode.REGISTRATION
@@ -180,6 +225,82 @@ public class OpenAiAiGateway implements AiGateway {
                 functions,
                 metadata
         );
+    }
+
+    private String streamChatCompletion(String systemPrompt,
+                                        List<ChatMessageInput> messages,
+                                        Consumer<String> tokenConsumer) throws IOException, InterruptedException {
+        List<Map<String, String>> requestMessages = new ArrayList<>();
+        requestMessages.add(Map.of("role", "system", "content", systemPrompt));
+        for (ChatMessageInput message : messages) {
+            String role = "assistant".equalsIgnoreCase(message.role()) ? "assistant" : "user";
+            requestMessages.add(Map.of("role", role, "content", message.content()));
+        }
+
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("model", properties.getAi().getChatModel());
+        payload.put("temperature", 0.2);
+        payload.put("stream", true);
+        payload.put("messages", requestMessages);
+
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(normalizeBaseUrl(properties.getAi().getBaseUrl()) + "/chat/completions"))
+                .timeout(Duration.ofSeconds(90))
+                .header("Content-Type", "application/json")
+                .header("Accept", "text/event-stream")
+                .header("Authorization", "Bearer " + properties.getAi().resolvedApiKey())
+                .POST(HttpRequest.BodyPublishers.ofString(jsonUtils.toJson(payload)))
+                .build();
+
+        HttpResponse<java.io.InputStream> response = httpClient.send(request, HttpResponse.BodyHandlers.ofInputStream());
+        if (response.statusCode() < 200 || response.statusCode() >= 300) {
+            throw new IllegalStateException("Streaming chat completion failed: HTTP " + response.statusCode());
+        }
+
+        StringBuilder reply = new StringBuilder();
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(response.body(), StandardCharsets.UTF_8))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                if (!line.startsWith("data:")) {
+                    continue;
+                }
+                String data = line.substring(5).trim();
+                if (data.isBlank() || "[DONE]".equals(data)) {
+                    continue;
+                }
+                String token = extractStreamToken(data);
+                if (!token.isEmpty()) {
+                    reply.append(token);
+                    tokenConsumer.accept(token);
+                }
+            }
+        }
+        return reply.toString();
+    }
+
+    private String extractStreamToken(String data) {
+        Map<String, Object> event = jsonUtils.toMap(data);
+        Object choicesValue = event.get("choices");
+        if (!(choicesValue instanceof List<?> choices) || choices.isEmpty()) {
+            return "";
+        }
+        Object firstChoice = choices.get(0);
+        if (!(firstChoice instanceof Map<?, ?> choice)) {
+            return "";
+        }
+        Object deltaValue = choice.get("delta");
+        if (!(deltaValue instanceof Map<?, ?> delta)) {
+            return "";
+        }
+        Object content = delta.get("content");
+        return content == null ? "" : String.valueOf(content);
+    }
+
+    private String normalizeBaseUrl(String baseUrl) {
+        if (baseUrl == null || baseUrl.isBlank()) {
+            return "https://api.openai.com/v1";
+        }
+        return baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
     }
 
     private List<RecommendationCard> buildRecommendationCards(TriageAnalysis analysis, List<KnowledgeSnippet> snippets) {
