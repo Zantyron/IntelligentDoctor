@@ -11,15 +11,20 @@ Intelligent Doctor 是一个智能导诊与挂号演示系统。项目采用 Spr
 
 ## 项目结构
 
-- `src/main/java/com/intelligentdoctor/chat`: 患者端对话入口、SSE 编排、会话记忆、单条/全部删除。
-- `src/main/java/com/intelligentdoctor/ai`: Prompt 拼接、AI 网关、LangChain4j AiService、Function Calling 工具定义。
-- `src/main/java/com/intelligentdoctor/knowledge`: 文档切割、Embedding、向量入库、Query 检索粗排和 rerank 精排。
-- `src/main/java/com/intelligentdoctor/registration`: 挂号草稿、患者实名信息、号源预占、订单确认和会话草稿清理。
-- `src/main/java/com/intelligentdoctor/admin`: 后台资料导入、导入任务、后台 Basic 鉴权。
-- `src/main/resources/static`: 患者端和管理后台页面，包含流式输出、等待态、医院风格 UI 和后台登录逻辑。
-- `sample-data`: 内置医院、科室、医生、排班和病症知识库样例。
-- `scripts`: 本地启动、冒烟测试、Redis 热点号源压测脚本。
-- `docs`: 架构、接口、RAG/Agent 范式、部署和演示说明。
+| 目录 | 说明 |
+| --- | --- |
+| `src/main/java/com/intelligentdoctor/admin` | 管理后台接口、导入任务、文件解析、知识切片入库和后台鉴权。 |
+| `src/main/java/com/intelligentdoctor/ai` | 大模型网关、Prompt 组装、AIService 边界、Function Calling 工具建议和规则兜底。 |
+| `src/main/java/com/intelligentdoctor/chat` | 患者端聊天入口、SSE 流式输出、聊天记忆、会话列表和消息删除。 |
+| `src/main/java/com/intelligentdoctor/knowledge` | RAG 知识库模块，负责文档切割、Embedding、向量入库、粗排检索和 rerank 精排。 |
+| `src/main/java/com/intelligentdoctor/registration` | 智能挂号模块，包含挂号草稿、实名信息、号源预占、订单确认和事件落库。 |
+| `src/main/java/com/intelligentdoctor/catalog` | 医院、科室、诊室、医生、排班和挂号规则等主数据查询。 |
+| `src/main/java/com/intelligentdoctor/system` | 系统运行状态、外部依赖探活和启动地址输出。 |
+| `src/main/resources/static` | 患者端和管理后台静态页面，包含医院风格 UI、等待态、流式输出和后台登录。 |
+| `docker` | MySQL、MongoDB、Redis、Kafka 的本地开发容器配置和初始化脚本。 |
+| `sample-data` | 演示医院、科室、医生、排班、规则和病症知识库样例。 |
+| `scripts` | 一键启动、冒烟测试、发布验证和 Redis 热点号源压测脚本。 |
+| `docs` | 架构、接口、部署、演示和验收文档，方便面试或答辩时快速说明项目。 |
 
 核心 Agent 范式为 `react-rag-tool`: 先做意图和 Query 处理，再执行 RAG 检索和工具调用，最后将系统 Prompt、业务 Prompt、历史摘要、RAG 证据和工具结果拼接后发送给大模型。
 
