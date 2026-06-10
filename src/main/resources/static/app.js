@@ -31,6 +31,23 @@ function createSessionId() {
     return `session-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
 }
 
+async function copyText(text) {
+    const value = String(text || "").trim();
+    if (!value) return;
+    if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(value);
+        return;
+    }
+    const area = document.createElement("textarea");
+    area.value = value;
+    area.style.position = "fixed";
+    area.style.opacity = "0";
+    document.body.appendChild(area);
+    area.select();
+    document.execCommand("copy");
+    area.remove();
+}
+
 // ── Toast System ─────────────────────────────────────────────────────
 function showToast(message, type = "info", duration = 3500) {
     const container = document.getElementById("toastContainer");
@@ -71,6 +88,20 @@ document.addEventListener("click", (e) => {
 // ── Celebration Overlay ──────────────────────────────────────────────
 function showCelebration(orderNo) {
     const overlay = document.getElementById("celebrationOverlay");
+    const card = overlay.querySelector(".celebration-card");
+    card.innerHTML = `
+        <div class="checkmark">OK</div>
+        <h2>挂号成功</h2>
+        <p id="celebrationMessage">订单号：${escapeHtml(orderNo)}</p>
+        <small>请按预约时间到院就诊，并携带身份证件。</small>
+        <button id="closeCelebrationBtn" type="button">我知道了</button>
+    `;
+    card.querySelector("#closeCelebrationBtn").addEventListener("click", () => {
+        overlay.classList.add("hidden");
+    });
+    overlay.classList.remove("hidden");
+    spawnConfetti();
+    return;
     document.getElementById("celebrationMessage").textContent =
         `订单号：${orderNo}`;
     overlay.classList.remove("hidden");
@@ -204,6 +235,7 @@ document.getElementById("newSessionBtn").addEventListener("click", () => {
     currentDraft = null;
     chatLog.innerHTML = "";
     resultPanel.classList.add("hidden");
+    document.getElementById("draftCard").classList.add("hidden");
     confirmForm.classList.add("hidden");
     orderResult.classList.add("hidden");
     draftBadge.textContent = "未生成";
@@ -417,6 +449,7 @@ async function consumeEventStream(response, placeholder) {
             if (parsed.eventName === "chunk") {
                 assembled += payload.content;
                 placeholder.classList.remove("thinking");
+                placeholder.parentElement.dataset.copyText = assembled;
 
                 // Render markdown-style content nicely
                 placeholder.innerHTML =
@@ -477,6 +510,19 @@ function smoothScrollToBottom(el) {
 function appendBubble(role, content, messageId) {
     const bubble = document.createElement("div");
     bubble.className = `bubble ${role}`;
+    bubble.dataset.copyText = content || "";
+
+    const copyButton = document.createElement("button");
+    copyButton.className = "bubble-copy";
+    copyButton.type = "button";
+    copyButton.textContent = "复制";
+    copyButton.title = "复制这条消息";
+    copyButton.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        await copyText(bubble.dataset.copyText || bubble.innerText);
+        showToast("已复制消息", "success", 1800);
+    });
+    bubble.appendChild(copyButton);
 
     if (messageId) {
         bubble.dataset.messageId = messageId;
@@ -488,6 +534,19 @@ function appendBubble(role, content, messageId) {
         deleteButton.addEventListener("click", (e) => {
             e.stopPropagation();
             deleteMessage(messageId, bubble);
+        });
+        bubble.appendChild(deleteButton);
+    }
+
+    if (!messageId) {
+        const deleteButton = document.createElement("button");
+        deleteButton.className = "bubble-delete";
+        deleteButton.type = "button";
+        deleteButton.textContent = "删除";
+        deleteButton.title = "删除这条消息";
+        deleteButton.addEventListener("click", (e) => {
+            e.stopPropagation();
+            bubble.remove();
         });
         bubble.appendChild(deleteButton);
     }
@@ -525,6 +584,11 @@ function renderResult(metadata) {
         `).join("")
         : '<div class="empty">当前没有结构化推荐卡片。</div>';
 
+    const appointmentOptions = (metadata.metadata && metadata.metadata.appointmentOptions) || [];
+    if (appointmentOptions.length) {
+        recommendationsEl.innerHTML += renderAppointmentTable(appointmentOptions);
+    }
+
     const evidence = metadata.evidence || [];
     evidenceListEl.innerHTML = evidence.length
         ? evidence.map(item =>
@@ -541,7 +605,52 @@ function renderResult(metadata) {
 }
 
 // ── Render Draft ─────────────────────────────────────────────────────
+function renderAppointmentTable(options) {
+    return `
+        <section class="appointment-table-wrap">
+            <div class="appointment-table-title">
+                <strong>可预约号源</strong>
+                <span>已按当前症状匹配诊室、医生和时间段</span>
+            </div>
+            <div class="appointment-table-scroll">
+                <table class="appointment-table">
+                    <thead>
+                        <tr>
+                            <th>诊室</th>
+                            <th>医生</th>
+                            <th>职称</th>
+                            <th>擅长</th>
+                            <th>日期</th>
+                            <th>时段</th>
+                            <th>余号</th>
+                            <th>费用</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${options.map(item => `
+                            <tr>
+                                <td>
+                                    <strong>${escapeHtml(item.clinicName || "-")}</strong>
+                                    <small>${escapeHtml(item.clinicLocation || "")}</small>
+                                </td>
+                                <td>${escapeHtml(item.doctorName || "-")}</td>
+                                <td>${escapeHtml(item.doctorTitle || "-")}</td>
+                                <td>${escapeHtml(item.specialty || "-")}</td>
+                                <td>${escapeHtml(item.slotDate || "-")}</td>
+                                <td>${escapeHtml(item.period || "-")}</td>
+                                <td><span class="stock-pill">${escapeHtml(item.stockAvailable ?? "-")}</span></td>
+                                <td>${escapeHtml(item.consultationFee ?? "-")} 元</td>
+                            </tr>
+                        `).join("")}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    `;
+}
+
 function renderDraft(draft) {
+    document.getElementById("draftCard").classList.remove("hidden");
     draftBadge.textContent = draft.status || "DRAFT";
     draftBadge.style.animation = "none";
     draftBadge.offsetHeight;

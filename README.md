@@ -1,96 +1,121 @@
-﻿# Intelligent Doctor
+# Intelligent Doctor
 
-Intelligent Doctor 是一个智能导诊与挂号演示系统。项目采用 Spring Boot 单体后端，内置患者端和管理后台静态页面，覆盖导诊对话、RAG 知识召回、挂号草稿、Redis Lua 号源预占、异步订单落库、后台资料导入和外部依赖状态检查。
+智能导诊与挂号系统。项目以 Spring Boot 为后端核心，内置患者端和管理后台，围绕“症状咨询、RAG 知识召回、智能推荐科室/诊室/医生、挂号草稿确认、号源预占、订单落库、后台知识导入”构建完整闭环。
 
-## 功能范围
+这个项目适合作为 Java 后端、AI 应用、RAG 工程化、医疗业务系统方向的项目经验展示。
 
-- 患者端: `/`，支持症状导诊、智能挂号、RAG 证据、SSE 流式输出、会话管理和挂号确认。
-- 管理后台: `/admin.html`，通过 `admin/admin` 登录，支持医院资料导入、向量重建、订单查看和系统状态查看。
-- 后端服务: Spring Boot 3.5、Java 17、JPA、MongoDB、Redis、Kafka、OpenAI/Pinecone 可配置接入。
-- 测试交付: 单元测试、集成测试、RAG 检索测试、挂号一致性测试、Redis 热点号源压测脚本。
+## 核心亮点
+
+- **大模型流式输出**：患者端使用 SSE 接收响应，后端对 OpenAI-compatible Chat API 使用 `stream=true`，模型生成 token 后实时推送到前端。
+- **RAG 检索链路**：支持文档解析、文本切割、Embedding、向量入库、Query 处理、向量粗排、词法 rerank 精排和 Prompt 拼接。
+- **智能挂号推荐**：根据症状和上下文推荐科室，并把可预约诊室、医生、日期、时段、剩余号源和费用以表格形式展示。
+- **聊天记忆存储**：支持多轮上下文记忆、新开对话、历史会话保留、单条删除和全部删除，数据库记录同步处理。
+- **Function Calling / Tool 层**：封装科室检索、诊室查询、医生查询、排班查询、挂号草稿创建等工具能力，便于 Agent 编排。
+- **挂号一致性保障**：支持实名信息填写、草稿确认、Redis Lua 号源预占、本地/Kafka 事件落库和订单幂等处理。
+- **管理后台**：支持后台登录、资料导入、导入任务状态、知识库重建、系统依赖状态查看。
+- **工程化交付**：提供 Docker Compose、初始化 SQL、冒烟测试、压测脚本、发布检查清单和完整项目文档。
+
+## 技术栈
+
+| 类型 | 技术 |
+| --- | --- |
+| 后端 | Java 17, Spring Boot 3.5, Spring MVC, Validation |
+| 数据库 | MySQL, MongoDB, H2 Test Profile |
+| 缓存/消息 | Redis, Redis Lua, Kafka |
+| AI | LangChain4j, OpenAI-compatible Chat API, Embedding API |
+| RAG | 文档切割, 向量化, InMemory/Pinecone Vector Store, rerank |
+| 前端 | HTML, CSS, JavaScript, SSE Stream Reader |
+| 测试 | JUnit 5, Spring Boot Test, Awaitility |
+| 工程 | Docker Compose, Maven Wrapper, PowerShell Scripts |
+
+## 系统能力
+
+### 患者端
+
+- 症状导诊和智能挂号两种模式。
+- 大模型逐字/逐段流式输出。
+- 等待态、生成态、错误态完整反馈。
+- 智能推荐可展开/收起，默认收起。
+- 可预约号源表格展示诊室、医生、时间段和余号。
+- 挂号草稿默认隐藏，生成草稿后再出现。
+- 挂号成功后展示醒目的成功弹窗。
+- 用户消息和 AI 消息支持复制、删除。
+- 支持新开对话，同时保留旧对话。
+
+### 管理后台
+
+- 患者端跳转后台前需要登录。
+- 默认账号密码为 `admin/admin`，可通过环境变量覆盖。
+- 支持上传 CSV、Markdown、TXT、PDF、Excel 等资料。
+- 导入后生成知识切片，并可重建向量库。
+- 查看导入任务状态和系统依赖状态。
+
+### RAG 与 Agent 流程
+
+当前 Agent 范式为 `react-rag-tool`：
+
+1. 接收用户输入和历史上下文。
+2. 进行意图识别和 Query 处理。
+3. 检索医院知识库，先向量粗排。
+4. 对候选知识片段进行 rerank 精排。
+5. 调用工具查询科室、诊室、医生和排班。
+6. 拼接系统 Prompt、业务 Prompt、历史摘要、RAG 证据和工具结果。
+7. 调用大模型生成回复，并通过 SSE 实时输出到前端。
 
 ## 项目结构
 
 | 目录 | 说明 |
 | --- | --- |
-| `src/main/java/com/intelligentdoctor/admin` | 管理后台接口、导入任务、文件解析、知识切片入库和后台鉴权。 |
-| `src/main/java/com/intelligentdoctor/ai` | 大模型网关、Prompt 组装、AIService 边界、Function Calling 工具建议和规则兜底。 |
-| `src/main/java/com/intelligentdoctor/chat` | 患者端聊天入口、SSE 流式输出、聊天记忆、会话列表和消息删除。 |
-| `src/main/java/com/intelligentdoctor/knowledge` | RAG 知识库模块，负责文档切割、Embedding、向量入库、粗排检索和 rerank 精排。 |
-| `src/main/java/com/intelligentdoctor/registration` | 智能挂号模块，包含挂号草稿、实名信息、号源预占、订单确认和事件落库。 |
-| `src/main/java/com/intelligentdoctor/catalog` | 医院、科室、诊室、医生、排班和挂号规则等主数据查询。 |
-| `src/main/java/com/intelligentdoctor/system` | 系统运行状态、外部依赖探活和启动地址输出。 |
-| `src/main/resources/static` | 患者端和管理后台静态页面，包含医院风格 UI、等待态、流式输出和后台登录。 |
-| `docker` | MySQL、MongoDB、Redis、Kafka 的本地开发容器配置和初始化脚本。 |
-| `sample-data` | 演示医院、科室、医生、排班、规则和病症知识库样例。 |
-| `scripts` | 一键启动、冒烟测试、发布验证和 Redis 热点号源压测脚本。 |
-| `docs` | 架构、接口、部署、演示和验收文档，方便面试或答辩时快速说明项目。 |
-
-核心 Agent 范式为 `react-rag-tool`: 先做意图和 Query 处理，再执行 RAG 检索和工具调用，最后将系统 Prompt、业务 Prompt、历史摘要、RAG 证据和工具结果拼接后发送给大模型。
-
-## 外部依赖
-
-本地 Docker Compose 可启动:
-
-- MySQL `localhost:3306`
-- MongoDB `localhost:27017`
-- Redis `localhost:6379`
-- Kafka `localhost:9092`，默认通过 compose profile 启动
-
-云端或正式环境自行准备:
-
-- OpenAI 兼容 Chat API Key
-- OpenAI 兼容 Embedding API Key
-- Pinecone API Key 和 Index Host
-- 真实医院样例数据，可参考 `sample-data/hospital-import.csv`
+| `src/main/java/com/intelligentdoctor/admin` | 管理后台、资料导入、导入任务状态和后台鉴权。 |
+| `src/main/java/com/intelligentdoctor/ai` | 大模型网关、Prompt 编排、AIService 边界和工具调用建议。 |
+| `src/main/java/com/intelligentdoctor/chat` | 患者端聊天、SSE 流式响应、聊天记忆和会话删除。 |
+| `src/main/java/com/intelligentdoctor/knowledge` | RAG 知识库，包含文档切割、向量化、检索和重排。 |
+| `src/main/java/com/intelligentdoctor/registration` | 挂号草稿、实名信息、号源预占、订单生成和事件处理。 |
+| `src/main/java/com/intelligentdoctor/catalog` | 医院主数据，包括科室、诊室、医生、排班和规则。 |
+| `src/main/java/com/intelligentdoctor/system` | 系统状态探活、运行 profile 和启动地址输出。 |
+| `src/main/resources/static` | 患者端和管理后台静态页面。 |
+| `docker` | MySQL、MongoDB、Redis、Kafka 本地依赖配置。 |
+| `sample-data` | 演示医院、医生、排班和病症知识库样例。 |
+| `scripts` | 启动、冒烟测试、压测和发布检查脚本。 |
+| `docs` | 架构、接口、部署和演示文档。 |
 
 ## 快速启动
 
-1. 准备 Java 17 和 Docker。
+准备 Java 17 和 Docker Desktop。
 
-2. 复制配置模板:
+复制配置模板：
 
 ```powershell
 Copy-Item .env.example .env
 ```
 
-3. 启动依赖:
+启动本地依赖：
 
 ```powershell
 .\scripts\start-deps.ps1 -WithKafka
 ```
 
-4. 启动应用:
+启动应用：
 
 ```powershell
 .\scripts\start-app.ps1 -JavaHome "C:\Program Files\Java\jdk-17"
 ```
 
-没有 Docker 或云端 Key 时，也可以启动离线演示模式:
+也可以使用离线演示模式，不依赖真实云端模型和向量库：
 
 ```powershell
 .\scripts\run-demo.ps1 -JavaHome "C:\Program Files\Java\jdk-17"
 ```
 
-5. 打开页面:
+启动后访问：
 
-- 患者端: [http://localhost:8080/](http://localhost:8080/)
-- 管理后台: [http://localhost:8080/admin.html](http://localhost:8080/admin.html)，账号 `admin`，密码 `admin`
-- 依赖状态: [http://localhost:8080/api/system/profile](http://localhost:8080/api/system/profile)
+- 患者端：[http://localhost:8080/](http://localhost:8080/)
+- 管理后台：[http://localhost:8080/admin.html](http://localhost:8080/admin.html)
+- 系统状态：[http://localhost:8080/api/system/profile](http://localhost:8080/api/system/profile)
 
-## 验收命令
+## 常用配置
 
-```powershell
-.\mvnw.cmd test
-.\scripts\smoke-test.ps1 -BaseUrl http://localhost:8080
-.\scripts\redis-hot-slot-loadtest.ps1 -Stock 50 -Concurrency 200
-```
-
-压测输出中的 `noOversell` 应为 `true`，表示 Lua 原子扣减未超卖。
-
-## 配置说明
-
-常用配置在 `.env.example` 中。正式部署建议至少覆盖:
+`.env.example` 提供完整模板。正式环境建议至少配置：
 
 ```properties
 SPRING_PROFILES_ACTIVE=prod
@@ -100,32 +125,56 @@ SPRING_DATASOURCE_PASSWORD=change-me
 MONGODB_URI=mongodb://mongo-host:27017/doctor
 REDIS_HOST=redis-host
 KAFKA_BOOTSTRAP_SERVERS=kafka-host:9092
+
 APP_AI_PROVIDER=openai
 APP_VECTOR_STORE_PROVIDER=pinecone
 APP_STOCK_PROVIDER=redis
 APP_EVENT_PROVIDER=kafka
 APP_AGENT_PARADIGM=react-rag-tool
+
 OPENAI_API_KEY=change-me
 OPENAI_EMBEDDING_API_KEY=change-me
 PINECONE_API_KEY=change-me
 PINECONE_INDEX_HOST=https://your-index-host
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=change-me
 ```
 
-测试 profile 使用 H2、内存向量库、本地库存和本地事件，不依赖外部服务。
+不要提交 `.env`、真实 API Key、数据库密码或云服务密钥。
+
+## 验收命令
+
+```powershell
+.\mvnw.cmd test
+.\scripts\smoke-test.ps1 -BaseUrl http://localhost:8080
+.\scripts\redis-hot-slot-loadtest.ps1 -Stock 50 -Concurrency 200
+```
+
+Redis 压测结果中的 `noOversell` 应为 `true`，表示热点号源没有超卖。
 
 ## 文档
 
 - [架构说明](docs/architecture.md)
+- [RAG 与 Agent 设计](docs/agent-rag-design.md)
 - [接口文档](docs/api.md)
-- [演示脚本](docs/demo-script.md)
 - [部署说明](docs/deployment.md)
-- [首版发布清单](docs/release-checklist.md)
+- [演示脚本](docs/demo-script.md)
+- [发布清单](docs/release-checklist.md)
 - [MySQL 建表脚本](mysql-schema-v1.sql)
 
-## 发布清单
+## 安全说明
 
-- `mvnw.cmd test` 全部通过。
-- `scripts/smoke-test.ps1` 覆盖患者端导诊、挂号草稿、订单确认。
-- `scripts/redis-hot-slot-loadtest.ps1` 验证热点号源无超卖。
-- `.env.example` 不包含真实密钥。
-- `target/`、`.env`、运行日志和本地数据不进入仓库。
+- `.env` 已加入 `.gitignore`。
+- `.env.example` 只保留占位符，不包含真实密钥。
+- 管理后台默认账号仅用于演示，生产环境必须通过环境变量修改。
+- 真实 API Key 如曾暴露，应立即在平台侧轮换。
+
+## 项目定位
+
+这是一个面向演示和项目经验展示的智能医疗业务系统，重点体现：
+
+- Java 后端业务建模能力。
+- 大模型应用接入能力。
+- RAG 工程化落地能力。
+- Redis/Kafka 在挂号场景中的一致性设计。
+- 前后端完整闭环交付能力。

@@ -1,28 +1,27 @@
 package com.intelligentdoctor.chat.service;
 
-import com.intelligentdoctor.ai.dto.AiPromptContext;
-import com.intelligentdoctor.ai.dto.KnowledgeSnippet;
 import com.intelligentdoctor.ai.dto.TriageAnalysis;
-import com.intelligentdoctor.ai.prompt.PromptTemplateService;
-import com.intelligentdoctor.ai.provider.AiGateway;
 import com.intelligentdoctor.ai.tools.AgentToolService;
-import com.intelligentdoctor.chat.dto.ChatMessageInput;
 import com.intelligentdoctor.catalog.entity.DepartmentEntity;
 import com.intelligentdoctor.catalog.service.CatalogQueryService;
+import com.intelligentdoctor.chat.agent.TriageAgentRequest;
+import com.intelligentdoctor.chat.agent.TriageAgentRuntimeSelector;
 import com.intelligentdoctor.chat.dto.ChatStreamRequest;
 import com.intelligentdoctor.chat.dto.ChatStreamResult;
 import com.intelligentdoctor.chat.history.ChatHistoryService;
 import com.intelligentdoctor.chat.model.ChatMode;
 import com.intelligentdoctor.common.SsePayload;
 import com.intelligentdoctor.config.AppProperties;
-import com.intelligentdoctor.knowledge.service.KnowledgeSearchService;
 import com.intelligentdoctor.registration.dto.CreateDraftCommand;
 import com.intelligentdoctor.registration.dto.RegistrationDraftView;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
+import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executor;
@@ -31,29 +30,23 @@ import java.util.concurrent.Executor;
 public class ChatOrchestratorService {
 
     private final AppProperties properties;
-    private final AiGateway aiGateway;
-    private final PromptTemplateService promptTemplateService;
-    private final KnowledgeSearchService knowledgeSearchService;
     private final CatalogQueryService catalogQueryService;
     private final AgentToolService agentToolService;
     private final ChatHistoryService chatHistoryService;
+    private final TriageAgentRuntimeSelector runtimeSelector;
     private final Executor executor;
 
     public ChatOrchestratorService(AppProperties properties,
-                                   AiGateway aiGateway,
-                                   PromptTemplateService promptTemplateService,
-                                   KnowledgeSearchService knowledgeSearchService,
                                    CatalogQueryService catalogQueryService,
                                    AgentToolService agentToolService,
                                    ChatHistoryService chatHistoryService,
+                                   TriageAgentRuntimeSelector runtimeSelector,
                                    Executor executor) {
         this.properties = properties;
-        this.aiGateway = aiGateway;
-        this.promptTemplateService = promptTemplateService;
-        this.knowledgeSearchService = knowledgeSearchService;
         this.catalogQueryService = catalogQueryService;
         this.agentToolService = agentToolService;
         this.chatHistoryService = chatHistoryService;
+        this.runtimeSelector = runtimeSelector;
         this.executor = executor;
     }
 
@@ -64,31 +57,20 @@ public class ChatOrchestratorService {
         executor.execute(() -> {
             try {
                 String hospitalId = resolveHospitalId(request.hospitalId());
-                List<ChatMessageInput> modelMessages = chatHistoryService.mergeWithStoredHistory(
-                        request.sessionId(), request.messages());
-                TriageAnalysis analysis = aiGateway.analyze(mode, modelMessages);
-                List<KnowledgeSnippet> snippets = knowledgeSearchService.search(hospitalId, analysis.symptomSummary(), 5);
-                if (request.consentToStoreHistory()) {
-                    chatHistoryService.storeToolTrace(request.sessionId(), "ragSearch", Map.of(
-                            "hospitalId", hospitalId,
-                            "mode", mode.name(),
-                            "query", analysis.symptomSummary(),
-                            "limit", 5,
-                            "pipeline", "queryProcessing -> vector coarse retrieval -> lexical rerank -> prompt augmentation"
-                    ), Map.of(
-                            "snippets", snippets,
-                            "trace", knowledgeSearchService.explainSearch(analysis.symptomSummary(), snippets)
-                    ));
-                }
+                emitPayload(emitter, "meta", "开始生成导诊结果", Map.of(
+                        "mode", mode.name(),
+                        "hospitalId", hospitalId,
+                        "agentRuntime", properties.getAgent().getRuntime()
+                ));
 
-                List<String> evidence = snippets.stream().map(KnowledgeSnippet::text).toList();
-                AiPromptContext promptContext = promptTemplateService.build(mode, evidence);
-                RegistrationDraftView autoDraft = mode == ChatMode.REGISTRATION
-                        ? createDraftFromRecommendation(request.sessionId(), hospitalId, analysis)
-                        : null;
-                emitPayload(emitter, "meta", "开始生成导诊结果", Map.of("mode", mode.name(), "hospitalId", hospitalId));
                 StringBuilder streamedReply = new StringBuilder();
-                ChatStreamResult result = aiGateway.composeReplyStreaming(mode, analysis, snippets, promptContext, modelMessages, token -> {
+                ChatStreamResult result = runtimeSelector.select().run(new TriageAgentRequest(
+                        mode,
+                        request.sessionId(),
+                        hospitalId,
+                        request.consentToStoreHistory(),
+                        request.messages()
+                ), token -> {
                     try {
                         streamedReply.append(token);
                         emitPayload(emitter, "chunk", token, Map.of());
@@ -96,7 +78,14 @@ public class ChatOrchestratorService {
                         throw new IllegalStateException("Failed to stream AI token", ex);
                     }
                 });
-                ChatStreamResult enriched = enrichResult(result, autoDraft);
+
+                List<Map<String, Object>> appointmentOptions = mode == ChatMode.REGISTRATION
+                        ? buildAppointmentOptions(request.sessionId(), hospitalId, result)
+                        : List.of();
+                RegistrationDraftView autoDraft = mode == ChatMode.REGISTRATION
+                        ? createDraftFromRecommendation(request.sessionId(), hospitalId, result, appointmentOptions)
+                        : null;
+                ChatStreamResult enriched = enrichResult(result, autoDraft, appointmentOptions);
 
                 streamText(emitter, remainingText(enriched.reply(), streamedReply));
                 emitPayload(emitter, "result", "", Map.of(
@@ -108,7 +97,7 @@ public class ChatOrchestratorService {
                         "metadata", enriched.metadata()
                 ));
                 chatHistoryService.storeChat(request.sessionId(), hospitalId, mode, request.consentToStoreHistory(),
-                        request.messages(), enriched.reply(), promptContext);
+                        request.messages(), enriched.reply(), null);
                 emitter.complete();
             } catch (Exception ex) {
                 try {
@@ -121,11 +110,22 @@ public class ChatOrchestratorService {
         return emitter;
     }
 
-    private ChatStreamResult enrichResult(ChatStreamResult result, RegistrationDraftView draftView) {
-        if (draftView == null) {
-            return result;
-        }
+    private ChatStreamResult enrichResult(ChatStreamResult result,
+                                          RegistrationDraftView draftView,
+                                          List<Map<String, Object>> appointmentOptions) {
         Map<String, Object> metadata = new HashMap<>(result.metadata());
+        metadata.put("appointmentOptions", appointmentOptions);
+        if (draftView == null) {
+            return new ChatStreamResult(
+                    result.reply(),
+                    result.summary(),
+                    result.possibleConditions(),
+                    result.recommendations(),
+                    result.evidence(),
+                    result.functionSuggestions(),
+                    metadata
+            );
+        }
         Map<String, Object> draft = new HashMap<>();
         draft.put("draftId", draftView.draftId());
         draft.put("departmentId", draftView.departmentId());
@@ -152,7 +152,76 @@ public class ChatOrchestratorService {
         );
     }
 
-    private RegistrationDraftView createDraftFromRecommendation(String sessionId, String hospitalId, TriageAnalysis analysis) {
+    private List<Map<String, Object>> buildAppointmentOptions(String sessionId, String hospitalId, ChatStreamResult result) {
+        TriageAnalysis analysis = toAnalysis(result);
+        List<Map<String, Object>> options = new ArrayList<>();
+        for (String name : new LinkedHashSet<>(analysis.suggestedDepartments())) {
+            DepartmentEntity department = catalogQueryService.resolveDepartmentByName(hospitalId, name);
+            if (department == null) {
+                continue;
+            }
+            var clinics = agentToolService.searchClinics(sessionId, hospitalId, department.getId());
+            for (var clinic : clinics) {
+                var doctors = agentToolService.searchDoctors(sessionId, hospitalId, department.getId(), clinic.id());
+                for (var doctor : doctors) {
+                    var schedules = agentToolService.querySchedules(sessionId, hospitalId, department.getId(), doctor.id());
+                    for (var schedule : schedules) {
+                        if (schedule.stockAvailable() <= 0) {
+                            continue;
+                        }
+                        Map<String, Object> option = new HashMap<>();
+                        option.put("departmentId", department.getId());
+                        option.put("departmentName", department.getName());
+                        option.put("clinicRoomId", clinic.id());
+                        option.put("clinicName", clinic.name());
+                        option.put("clinicLocation", clinic.location());
+                        option.put("doctorId", doctor.id());
+                        option.put("doctorName", doctor.name());
+                        option.put("doctorTitle", doctor.title());
+                        option.put("specialty", doctor.specialty());
+                        option.put("consultationFee", doctor.consultationFee());
+                        option.put("slotId", schedule.id());
+                        option.put("slotDate", schedule.slotDate());
+                        option.put("period", schedule.period());
+                        option.put("stockAvailable", schedule.stockAvailable());
+                        option.put("hotExpert", doctor.hotExpert());
+                        option.put("hotSlot", schedule.hotSlot());
+                        options.add(option);
+                        if (options.size() >= 12) {
+                            return options;
+                        }
+                    }
+                }
+            }
+        }
+        return options;
+    }
+
+    private RegistrationDraftView createDraftFromRecommendation(String sessionId,
+                                                               String hospitalId,
+                                                               ChatStreamResult result,
+                                                               List<Map<String, Object>> appointmentOptions) {
+        if (!appointmentOptions.isEmpty()) {
+            Map<String, Object> option = appointmentOptions.get(0);
+            return agentToolService.createRegistrationDraft(sessionId, new CreateDraftCommand(
+                    hospitalId,
+                    sessionId,
+                    result.summary(),
+                    String.valueOf(option.get("departmentId")),
+                    String.valueOf(option.get("clinicRoomId")),
+                    String.valueOf(option.get("doctorId")),
+                    String.valueOf(option.get("slotId")),
+                    (LocalDate) option.get("slotDate"),
+                    String.valueOf(option.get("period")),
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null
+            ));
+        }
+        TriageAnalysis analysis = toAnalysis(result);
         DepartmentEntity department = null;
         for (String name : analysis.suggestedDepartments()) {
             department = catalogQueryService.resolveDepartmentByName(hospitalId, name);
@@ -192,6 +261,21 @@ public class ChatOrchestratorService {
                 null,
                 null
         ));
+    }
+
+    private TriageAnalysis toAnalysis(ChatStreamResult result) {
+        List<String> departments = result.recommendations().stream()
+                .filter(recommendation -> "department".equalsIgnoreCase(recommendation.type()))
+                .map(recommendation -> recommendation.title())
+                .toList();
+        return new TriageAnalysis(
+                result.summary(),
+                result.possibleConditions(),
+                String.valueOf(result.metadata().getOrDefault("urgencyLevel", "MEDIUM")),
+                departments,
+                List.of(),
+                Map.of()
+        );
     }
 
     private void streamText(SseEmitter emitter, String text) throws IOException, InterruptedException {

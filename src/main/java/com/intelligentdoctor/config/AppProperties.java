@@ -348,6 +348,9 @@ public class AppProperties {
 
     public static class Agent {
         private String paradigm = "react-rag-tool";
+        private String runtime = "native";
+        private int memoryMaxMessages = 12;
+        private int maxToolRoundTrips = 4;
 
         public String getParadigm() {
             return paradigm;
@@ -355,6 +358,30 @@ public class AppProperties {
 
         public void setParadigm(String paradigm) {
             this.paradigm = paradigm;
+        }
+
+        public String getRuntime() {
+            return runtime;
+        }
+
+        public void setRuntime(String runtime) {
+            this.runtime = runtime;
+        }
+
+        public int getMemoryMaxMessages() {
+            return memoryMaxMessages;
+        }
+
+        public void setMemoryMaxMessages(int memoryMaxMessages) {
+            this.memoryMaxMessages = memoryMaxMessages;
+        }
+
+        public int getMaxToolRoundTrips() {
+            return maxToolRoundTrips;
+        }
+
+        public void setMaxToolRoundTrips(int maxToolRoundTrips) {
+            this.maxToolRoundTrips = maxToolRoundTrips;
         }
     }
 

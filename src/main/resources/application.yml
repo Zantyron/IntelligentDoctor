@@ -66,3 +66,6 @@ app:
     chunk-delay-millis: ${APP_STREAM_CHUNK_DELAY_MILLIS:35}
   agent:
     paradigm: ${APP_AGENT_PARADIGM:react-rag-tool}
+    runtime: ${APP_AGENT_RUNTIME:native}
+    memory-max-messages: ${APP_AGENT_MEMORY_MAX_MESSAGES:12}
+    max-tool-round-trips: ${APP_AGENT_MAX_TOOL_ROUND_TRIPS:4}

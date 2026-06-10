@@ -750,11 +750,11 @@ a {
     word-break: break-word;
 }
 
-/* Bubble delete button */
+/* Bubble action buttons */
+.bubble-copy,
 .bubble-delete {
     position: absolute;
     top: 8px;
-    right: 8px;
     opacity: 0;
     border: 0;
     background: rgba(255, 255, 255, 0.9);
@@ -767,8 +767,22 @@ a {
     backdrop-filter: blur(4px);
 }
 
+.bubble-copy {
+    right: 58px;
+}
+
+.bubble-delete {
+    right: 8px;
+}
+
+.bubble:hover .bubble-copy,
 .bubble:hover .bubble-delete {
     opacity: 1;
+}
+
+.bubble-copy:hover {
+    color: var(--primary);
+    background: var(--primary-soft);
 }
 
 .bubble-delete:hover {
@@ -937,6 +951,82 @@ a {
     font-size: 13px;
 }
 
+.appointment-table-wrap {
+    grid-column: 1 / -1;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--surface);
+    overflow: hidden;
+    margin-top: 10px;
+}
+
+.appointment-table-title {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--line);
+    background: var(--surface-tint);
+}
+
+.appointment-table-title strong {
+    color: var(--text);
+    font-size: 14px;
+}
+
+.appointment-table-title span {
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.appointment-table-scroll {
+    overflow-x: auto;
+}
+
+.appointment-table {
+    width: 100%;
+    min-width: 860px;
+    border-collapse: collapse;
+    font-size: 12px;
+}
+
+.appointment-table th,
+.appointment-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--line);
+    text-align: left;
+    vertical-align: top;
+}
+
+.appointment-table th {
+    color: var(--muted);
+    background: rgba(248, 250, 252, 0.86);
+    font-weight: 700;
+}
+
+.appointment-table td strong,
+.appointment-table td small {
+    display: block;
+}
+
+.appointment-table td small {
+    margin-top: 2px;
+    color: var(--muted);
+}
+
+.stock-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 30px;
+    padding: 2px 8px;
+    border-radius: var(--radius-full);
+    background: var(--success-soft);
+    color: var(--success);
+    font-weight: 700;
+}
+
 /* ── Evidence ──────────────────────────────────────────────────────── */
 .evidence-list {
     display: grid;
@@ -993,6 +1083,10 @@ a {
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-sm);
     transition: all var(--duration) var(--ease-out);
+}
+
+.draft-card.hidden {
+    display: none;
 }
 
 .draft-card:has(.order-result:not(.hidden)) {
@@ -1382,19 +1476,24 @@ input:focus, textarea:focus, select:focus {
 .celebration-overlay {
     position: fixed;
     inset: 0;
-    z-index: 999;
-    pointer-events: none;
+    z-index: 1000;
+    pointer-events: auto;
     display: grid;
     place-items: center;
+    padding: 24px;
+    background: rgba(15, 23, 42, 0.42);
+    backdrop-filter: blur(10px);
 }
 
 .celebration-card {
     background: var(--surface);
     border-radius: var(--radius-xl);
-    padding: 32px 48px;
+    padding: 34px 42px 30px;
     text-align: center;
     box-shadow: var(--shadow-xl);
     animation: celebrationPop 0.5s var(--ease-spring);
+    width: min(420px, 100%);
+    border: 1px solid rgba(255, 255, 255, 0.78);
 }
 
 .celebration-card .checkmark {
@@ -1405,7 +1504,8 @@ input:focus, textarea:focus, select:focus {
     color: var(--success);
     display: grid;
     place-items: center;
-    font-size: 32px;
+    font-size: 18px;
+    font-weight: 800;
     margin: 0 auto 16px;
     animation: scaleIn 0.4s var(--ease-spring) 0.15s both;
 }
@@ -1418,6 +1518,30 @@ input:focus, textarea:focus, select:focus {
     color: var(--muted);
     margin-top: 8px;
     animation: slideUp 0.4s var(--ease-spring) 0.35s both;
+}
+
+.celebration-card small {
+    display: block;
+    color: var(--text-secondary);
+    margin-top: 8px;
+    line-height: 1.6;
+}
+
+.celebration-card button {
+    margin-top: 22px;
+    border: 0;
+    border-radius: var(--radius);
+    background: var(--success);
+    color: #fff;
+    padding: 11px 26px;
+    font-weight: 800;
+    cursor: pointer;
+    box-shadow: var(--shadow-sm);
+}
+
+.celebration-card button:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
 }
 
 @keyframes celebrationPop {
