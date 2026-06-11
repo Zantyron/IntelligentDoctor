@@ -58,7 +58,7 @@ public class NativeTriageAgentRuntime implements TriageAgentRuntime {
         }
 
         List<String> evidence = snippets.stream().map(KnowledgeSnippet::text).toList();
-        AiPromptContext promptContext = promptTemplateService.build(request.mode(), evidence);
+        AiPromptContext promptContext = promptTemplateService.build(request.mode(), evidence, request.requestTime());
         return aiGateway.composeReplyStreaming(
                 request.mode(),
                 analysis,

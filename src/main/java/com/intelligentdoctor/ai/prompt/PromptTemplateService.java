@@ -4,12 +4,18 @@ import com.intelligentdoctor.ai.dto.AiPromptContext;
 import com.intelligentdoctor.chat.model.ChatMode;
 import org.springframework.stereotype.Service;
 
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 @Service
 public class PromptTemplateService {
 
     public AiPromptContext build(ChatMode mode, List<String> evidence) {
+        return build(mode, evidence, null);
+    }
+
+    public AiPromptContext build(ChatMode mode, List<String> evidence, ZonedDateTime requestTime) {
         String systemPrompt = """
                 你是“智能导诊”系统中的 AI 导诊中枢。你只能提供导诊、分诊和挂号建议，不能给出确诊、处方或替代医生面诊。
                 输出必须谨慎、可解释、面向中文患者；当出现急危重症信号时，明确建议立即线下就医或急诊。
@@ -38,6 +44,16 @@ public class PromptTemplateService {
                 4. 输出中必须区分“建议”“推荐依据”“下一步行动”。
                 """;
 
-        return new AiPromptContext(mode, systemPrompt, businessPrompt, ragPrompt, toolPrompt, evidence);
+        return new AiPromptContext(mode, systemPrompt + timePrompt(requestTime), businessPrompt, ragPrompt, toolPrompt, evidence);
+    }
+
+    private String timePrompt(ZonedDateTime requestTime) {
+        if (requestTime == null) {
+            return "";
+        }
+        return "\nCurrent hospital business time: "
+                + requestTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
+                + " (" + requestTime.getZone() + "). For registration answers, first use this exact date and time, "
+                + "and only recommend appointment slots later than the current time. Do not recommend elapsed same-day periods.";
     }
 }

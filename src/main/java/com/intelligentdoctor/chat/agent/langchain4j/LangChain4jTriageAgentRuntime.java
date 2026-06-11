@@ -27,6 +27,7 @@ import dev.langchain4j.service.tool.ToolExecution;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -87,7 +88,7 @@ public class LangChain4jTriageAgentRuntime implements TriageAgentRuntime {
         }
 
         List<String> evidence = snippets.stream().map(KnowledgeSnippet::text).toList();
-        AiPromptContext promptContext = promptTemplateService.build(request.mode(), evidence);
+        AiPromptContext promptContext = promptTemplateService.build(request.mode(), evidence, request.requestTime());
         StringBuilder reply = new StringBuilder();
         Throwable error = runAgentStream(request, modelMessages, analysis, promptContext, token -> {
             reply.append(token);
@@ -160,6 +161,8 @@ public class LangChain4jTriageAgentRuntime implements TriageAgentRuntime {
                         "possibleConditions", analysis.possibleConditions(),
                         "urgencyLevel", analysis.urgencyLevel(),
                         "suggestedDepartments", analysis.suggestedDepartments(),
+                        "requestTime", requestTimeText(request),
+                        "registrationTimeRule", "Only recommend appointment slots later than requestTime.",
                         "cautionNotes", analysis.cautionNotes(),
                         "extractedSlots", analysis.extractedSlots()
                 )),
@@ -215,10 +218,19 @@ public class LangChain4jTriageAgentRuntime implements TriageAgentRuntime {
         metadata.put("model", properties.getAi().getChatModel());
         metadata.put("evidenceCount", snippets.size());
         metadata.put("toolCalling", "@Tool AgentToolService + KnowledgeSearchTool");
+        metadata.put("requestTime", requestTimeText(request));
         if (error != null) {
             metadata.put("langchain4jError", error.getClass().getSimpleName() + ": " + error.getMessage());
         }
         return metadata;
+    }
+
+    private String requestTimeText(TriageAgentRequest request) {
+        if (request.requestTime() == null) {
+            return "";
+        }
+        return request.requestTime().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
+                + " (" + request.requestTime().getZone() + ")";
     }
 
     private List<String> evidenceWithScore(List<KnowledgeSnippet> snippets) {

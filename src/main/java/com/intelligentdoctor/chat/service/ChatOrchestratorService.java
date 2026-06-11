@@ -19,7 +19,12 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
 import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -28,6 +33,8 @@ import java.util.concurrent.Executor;
 
 @Service
 public class ChatOrchestratorService {
+
+    private static final ZoneId HOSPITAL_ZONE = ZoneId.of("Asia/Shanghai");
 
     private final AppProperties properties;
     private final CatalogQueryService catalogQueryService;
@@ -57,10 +64,12 @@ public class ChatOrchestratorService {
         executor.execute(() -> {
             try {
                 String hospitalId = resolveHospitalId(request.hospitalId());
+                ZonedDateTime requestTime = ZonedDateTime.now(HOSPITAL_ZONE);
                 emitPayload(emitter, "meta", "开始生成导诊结果", Map.of(
                         "mode", mode.name(),
                         "hospitalId", hospitalId,
-                        "agentRuntime", properties.getAgent().getRuntime()
+                        "agentRuntime", properties.getAgent().getRuntime(),
+                        "requestTime", requestTime.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
                 ));
 
                 StringBuilder streamedReply = new StringBuilder();
@@ -69,6 +78,7 @@ public class ChatOrchestratorService {
                         request.sessionId(),
                         hospitalId,
                         request.consentToStoreHistory(),
+                        requestTime,
                         request.messages()
                 ), token -> {
                     try {
@@ -80,7 +90,7 @@ public class ChatOrchestratorService {
                 });
 
                 List<Map<String, Object>> appointmentOptions = mode == ChatMode.REGISTRATION
-                        ? buildAppointmentOptions(request.sessionId(), hospitalId, result)
+                        ? buildAppointmentOptions(request.sessionId(), hospitalId, result, requestTime)
                         : List.of();
                 RegistrationDraftView autoDraft = mode == ChatMode.REGISTRATION
                         ? createDraftFromRecommendation(request.sessionId(), hospitalId, result, appointmentOptions)
@@ -152,7 +162,10 @@ public class ChatOrchestratorService {
         );
     }
 
-    private List<Map<String, Object>> buildAppointmentOptions(String sessionId, String hospitalId, ChatStreamResult result) {
+    private List<Map<String, Object>> buildAppointmentOptions(String sessionId,
+                                                              String hospitalId,
+                                                              ChatStreamResult result,
+                                                              ZonedDateTime requestTime) {
         TriageAnalysis analysis = toAnalysis(result);
         List<Map<String, Object>> options = new ArrayList<>();
         for (String name : new LinkedHashSet<>(analysis.suggestedDepartments())) {
@@ -166,7 +179,7 @@ public class ChatOrchestratorService {
                 for (var doctor : doctors) {
                     var schedules = agentToolService.querySchedules(sessionId, hospitalId, department.getId(), doctor.id());
                     for (var schedule : schedules) {
-                        if (schedule.stockAvailable() <= 0) {
+                        if (schedule.stockAvailable() <= 0 || !isBookableAfterNow(schedule.slotDate(), schedule.period(), requestTime)) {
                             continue;
                         }
                         Map<String, Object> option = new HashMap<>();
@@ -187,14 +200,56 @@ public class ChatOrchestratorService {
                         option.put("hotExpert", doctor.hotExpert());
                         option.put("hotSlot", schedule.hotSlot());
                         options.add(option);
-                        if (options.size() >= 12) {
-                            return options;
-                        }
                     }
                 }
             }
         }
-        return options;
+        return options.stream()
+                .sorted(Comparator
+                        .comparing((Map<String, Object> option) -> (LocalDate) option.get("slotDate"))
+                        .thenComparingInt(option -> periodRank(String.valueOf(option.get("period")))))
+                .limit(12)
+                .toList();
+    }
+
+    private boolean isBookableAfterNow(LocalDate slotDate, String period, ZonedDateTime requestTime) {
+        LocalDate today = requestTime.toLocalDate();
+        if (slotDate.isAfter(today)) {
+            return true;
+        }
+        if (slotDate.isBefore(today)) {
+            return false;
+        }
+        // Period data is coarse, so keep the current period until its likely end time.
+        return periodEnd(period).isAfter(requestTime.toLocalTime());
+    }
+
+    private LocalTime periodEnd(String period) {
+        String value = period == null ? "" : period;
+        if (value.contains("上午") || value.toLowerCase().contains("morning")) {
+            return LocalTime.NOON;
+        }
+        if (value.contains("下午") || value.toLowerCase().contains("afternoon")) {
+            return LocalTime.of(18, 0);
+        }
+        if (value.contains("晚上") || value.contains("夜") || value.toLowerCase().contains("evening")) {
+            return LocalTime.of(23, 59);
+        }
+        return LocalTime.MAX;
+    }
+
+    private int periodRank(String period) {
+        String value = period == null ? "" : period;
+        if (value.contains("上午") || value.toLowerCase().contains("morning")) {
+            return 1;
+        }
+        if (value.contains("下午") || value.toLowerCase().contains("afternoon")) {
+            return 2;
+        }
+        if (value.contains("晚上") || value.contains("夜") || value.toLowerCase().contains("evening")) {
+            return 3;
+        }
+        return 9;
     }
 
     private RegistrationDraftView createDraftFromRecommendation(String sessionId,
@@ -240,7 +295,13 @@ public class ChatOrchestratorService {
         if (doctors.isEmpty()) {
             return null;
         }
-        var schedules = agentToolService.querySchedules(sessionId, hospitalId, department.getId(), doctors.get(0).id());
+        var schedules = agentToolService.querySchedules(sessionId, hospitalId, department.getId(), doctors.get(0).id()).stream()
+                .filter(schedule -> schedule.stockAvailable() > 0)
+                .filter(schedule -> isBookableAfterNow(schedule.slotDate(), schedule.period(), ZonedDateTime.now(HOSPITAL_ZONE)))
+                .sorted(Comparator
+                        .comparing(com.intelligentdoctor.catalog.dto.ScheduleSlotView::slotDate)
+                        .thenComparingInt(schedule -> periodRank(schedule.period())))
+                .toList();
         if (schedules.isEmpty()) {
             return null;
         }
