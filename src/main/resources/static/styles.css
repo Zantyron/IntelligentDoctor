@@ -532,18 +532,18 @@ a {
 }
 
 .session-row {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 42px;
-    align-items: stretch;
-    gap: 6px;
+    position: relative;
+    display: block;
 }
 
 .session-item {
+    width: 100%;
+    min-height: 64px;
     border: 1px solid var(--line);
     border-radius: var(--radius);
     background: var(--surface);
     color: var(--text);
-    padding: 10px 14px;
+    padding: 10px 60px 22px 14px;
     text-align: left;
     display: grid;
     gap: 3px;
@@ -570,14 +570,26 @@ a {
 }
 
 .session-delete {
+    position: absolute;
+    right: 8px;
+    bottom: 8px;
     border: 1px solid var(--line);
-    border-radius: var(--radius);
-    background: var(--surface);
+    border-radius: var(--radius-xs);
+    background: rgba(255, 255, 255, 0.82);
     color: var(--muted);
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 700;
+    padding: 3px 8px;
     cursor: pointer;
+    opacity: 0;
+    transform: translateY(3px);
     transition: all var(--duration-fast) var(--ease-out);
+}
+
+.session-row:hover .session-delete,
+.session-row:focus-within .session-delete {
+    opacity: 1;
+    transform: translateY(0);
 }
 
 .session-delete:hover {
@@ -775,6 +787,74 @@ a {
     word-break: break-word;
 }
 
+.bubble-content .ai-md {
+    white-space: normal;
+    display: grid;
+    gap: 8px;
+}
+
+.ai-md p {
+    margin: 0;
+    color: var(--text-secondary);
+}
+
+.ai-md h3,
+.ai-md h4,
+.ai-md h5 {
+    margin: 8px 0 2px;
+    color: var(--text);
+    line-height: 1.35;
+}
+
+.ai-md h3 {
+    font-size: 16px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid rgba(221, 232, 226, 0.7);
+}
+
+.ai-md h4 {
+    font-size: 14px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.ai-md h4::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--primary);
+    box-shadow: 0 0 0 4px var(--primary-soft);
+}
+
+.ai-md ul,
+.ai-md ol {
+    margin: 0;
+    padding-left: 20px;
+    display: grid;
+    gap: 5px;
+}
+
+.ai-md li {
+    color: var(--text-secondary);
+    padding-left: 2px;
+}
+
+.ai-md strong {
+    color: var(--primary-dark);
+    font-weight: 800;
+}
+
+.ai-md code {
+    font-family: inherit;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-xs);
+    background: var(--surface-tint);
+    padding: 1px 5px;
+    color: var(--primary-dark);
+}
+
 /* Bubble action buttons */
 .bubble-copy,
 .bubble-delete {
@@ -878,19 +958,32 @@ a {
     border: 1px solid rgba(221, 232, 226, 0.5);
     box-shadow: var(--shadow-lg);
     animation: slideUp var(--duration) var(--ease-spring);
-    transition: all var(--duration) var(--ease-out);
+    transition:
+        width 0.28s var(--ease-out),
+        max-height 0.34s var(--ease-out),
+        border-radius 0.28s var(--ease-out),
+        box-shadow 0.28s var(--ease-out),
+        opacity 0.24s var(--ease-out),
+        transform 0.28s var(--ease-out);
+    will-change: width, max-height, transform, opacity;
 }
 
 .result-panel.collapsed {
     width: auto;
     max-width: 190px;
     min-width: 136px;
+    max-height: 48px;
     border-radius: var(--radius-full);
     box-shadow: var(--shadow-md);
 }
 
 .result-panel.collapsed .result-content {
-    display: none;
+    max-height: 0;
+    opacity: 0;
+    transform: translateY(8px);
+    padding-top: 0;
+    padding-bottom: 0;
+    pointer-events: none;
 }
 
 .result-panel.collapsed .result-toggle {
@@ -904,10 +997,10 @@ a {
     width: auto;
     min-width: 128px;
     max-width: 168px;
+    max-height: 48px;
     border-radius: var(--radius-full);
 }
 
-.result-panel.user-hidden .result-content,
 .result-panel.user-hidden .result-hide {
     display: none;
 }
@@ -934,6 +1027,7 @@ a {
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: stretch;
     background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    transition: background var(--duration-fast), border-radius 0.28s var(--ease-out);
 }
 
 .result-toggle {
@@ -986,6 +1080,13 @@ a {
     max-height: 360px;
     overflow-y: auto;
     background: rgba(255, 255, 255, 0.6);
+    opacity: 1;
+    transform: translateY(0);
+    transition:
+        max-height 0.34s var(--ease-out),
+        opacity 0.24s var(--ease-out),
+        transform 0.28s var(--ease-out),
+        padding 0.28s var(--ease-out);
 }
 
 /* ── Cards (Recommendations) ───────────────────────────────────────── */
@@ -1364,7 +1465,7 @@ input:focus, textarea:focus, select:focus {
 
 .composer textarea {
     resize: vertical;
-    min-height: 72px;
+    min-height: 56px;
     max-height: 160px;
     font-size: 14px;
     line-height: 1.6;

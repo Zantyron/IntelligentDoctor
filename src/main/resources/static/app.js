@@ -302,7 +302,8 @@ document.getElementById("chatForm").addEventListener("submit", async (event) => 
 
     appendBubble("user", content);
     messageInput.value = "";
-    messageInput.style.height = "auto";
+    messageInput.style.height = "";
+    messageInput.blur();
     resultPanel.classList.add("hidden");
     orderResult.classList.add("hidden");
 
@@ -500,18 +501,68 @@ function parseSseEvent(rawEvent) {
 
 // ── Content Formatting ───────────────────────────────────────────────
 function formatContent(text) {
-    // Basic markdown-like formatting for AI responses
-    return escapeHtml(text)
-        // Bold: **text**
-        .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-        // Bullet points: lines starting with - or •
-        .replace(/^[•\-]\s(.+)$/gm, "<span style='display:block;padding-left:1em;margin:2px 0'>· $1</span>")
-        // Numbered lists: lines starting with 1. 2. etc
-        .replace(/^(\d+)\.\s(.+)$/gm, "<span style='display:block;padding-left:1em;margin:2px 0'>$1. $2</span>")
-        // Line breaks
-        .replace(/\n\n/g, "<br><br>");
-}
+    const lines = escapeHtml(text).replace(/\r\n/g, "\n").split("\n");
+    const html = [];
+    let listType = null;
 
+    const closeList = () => {
+        if (listType) {
+            html.push(`</${listType}>`);
+            listType = null;
+        }
+    };
+    const inline = value => value
+        .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+        .replace(/`([^`]+?)`/g, "<code>$1</code>");
+
+    for (const rawLine of lines) {
+        const line = rawLine.trim();
+        if (!line) {
+            closeList();
+            continue;
+        }
+        const heading = line.match(/^(#{1,3})\s+(.+)$/);
+        if (heading) {
+            closeList();
+            const level = Math.min(heading[1].length + 2, 5);
+            html.push(`<h${level}>${inline(heading[2])}</h${level}>`);
+            continue;
+        }
+        const plainHeading = line.match(/^([^:：]{2,12})[:：]\s*(.*)$/);
+        if (plainHeading) {
+            closeList();
+            html.push(`<h4>${plainHeading[1]}</h4>`);
+            if (plainHeading[2]) {
+                html.push(`<p>${inline(plainHeading[2])}</p>`);
+            }
+            continue;
+        }
+        const unordered = line.match(/^[-*]\s+(.+)$/);
+        if (unordered) {
+            if (listType !== "ul") {
+                closeList();
+                listType = "ul";
+                html.push("<ul>");
+            }
+            html.push(`<li>${inline(unordered[1])}</li>`);
+            continue;
+        }
+        const ordered = line.match(/^\d+[.]\s+(.+)$/);
+        if (ordered) {
+            if (listType !== "ol") {
+                closeList();
+                listType = "ol";
+                html.push("<ol>");
+            }
+            html.push(`<li>${inline(ordered[1])}</li>`);
+            continue;
+        }
+        closeList();
+        html.push(`<p>${inline(line)}</p>`);
+    }
+    closeList();
+    return `<div class="ai-md">${html.join("")}</div>`;
+}
 // ── Smooth Scroll ────────────────────────────────────────────────────
 function smoothScrollToBottom(el) {
     const scrollHeight = el.scrollHeight;
@@ -723,9 +774,7 @@ async function loadSessions() {
                         <span>${escapeHtml(item.title || "新对话")}</span>
                         <small>${escapeHtml(item.mode || "-")}</small>
                     </button>
-                    <button class="session-delete" data-delete-session="${escapeHtml(item.sessionId)}" type="button" title="删除该对话">
-                        删除
-                    </button>
+                    <button class="session-delete" data-delete-session="${escapeHtml(item.sessionId)}" type="button" title="删除该对话">删除</button>
                 </div>
             `).join("")
             : '<div class="empty">暂无历史对话</div>';
