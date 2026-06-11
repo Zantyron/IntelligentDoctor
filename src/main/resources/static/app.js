@@ -345,7 +345,7 @@ document.getElementById("chatForm").addEventListener("submit", async (event) => 
         sending = false;
         sendBtn.disabled = false;
         sendBtn.innerHTML = '<span class="send-icon">↑</span> 发送';
-        streamState.textContent = "支持流式输出 · 上下文记忆 · RAG 证据 · 自动挂号草稿";
+        streamState.textContent = "慢慢说，我们会耐心听清楚每一处不舒服，陪您一步步找到合适的就诊方向。";
         streamState.classList.remove("streaming");
     }
 });

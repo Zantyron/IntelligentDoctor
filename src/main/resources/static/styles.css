@@ -89,8 +89,8 @@ html {
 
 body {
     font-family: var(--font);
-    font-size: 15px;
-    line-height: 1.6;
+    font-size: 16px;
+    line-height: 1.65;
     color: var(--text);
     background: var(--bg);
     min-height: 100vh;
@@ -151,12 +151,12 @@ h1, h2, h3, h4, h5, h6 {
     letter-spacing: -0.02em;
 }
 
-h1 { font-size: clamp(24px, 3.5vw, 36px); }
-h2 { font-size: clamp(18px, 2.5vw, 24px); }
-h3 { font-size: clamp(16px, 2vw, 20px); }
+h1 { font-size: clamp(26px, 3.5vw, 38px); }
+h2 { font-size: clamp(20px, 2.5vw, 26px); }
+h3 { font-size: clamp(17px, 2vw, 22px); }
 
 .eyebrow {
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 700;
     letter-spacing: 0.12em;
     text-transform: uppercase;
@@ -164,7 +164,7 @@ h3 { font-size: clamp(16px, 2vw, 20px); }
 }
 
 .side-title {
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 700;
     letter-spacing: 0.1em;
     text-transform: uppercase;
@@ -298,13 +298,13 @@ a {
 
 .brand-title {
     font-weight: 800;
-    font-size: 18px;
+    font-size: 19px;
     color: var(--text);
     letter-spacing: -0.02em;
 }
 
 .brand-subtitle {
-    font-size: 12px;
+    font-size: 13px;
     color: var(--muted);
     margin-top: 1px;
 }
@@ -378,7 +378,7 @@ a {
     border: 0;
     background: transparent;
     color: var(--muted);
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 600;
     padding: 4px 8px;
     border-radius: var(--radius-xs);
@@ -489,14 +489,14 @@ a {
 
 .quick-prompts button {
     text-align: left;
-    padding: 10px 14px;
+    padding: 9px 12px;
     border: 1px solid var(--line);
     border-radius: var(--radius);
     background: var(--surface);
     color: var(--text-secondary);
-    font-size: 13px;
+    font-size: 16px;
     font-weight: 500;
-    line-height: 1.5;
+    line-height: 1.55;
     transition: all var(--duration-fast) var(--ease-out);
     cursor: pointer;
 }
@@ -549,7 +549,7 @@ a {
     gap: 3px;
     cursor: pointer;
     transition: all var(--duration-fast) var(--ease-out);
-    font-size: 13px;
+    font-size: 14px;
 }
 
 .session-row:hover .session-item {
@@ -566,7 +566,7 @@ a {
 
 .session-item small {
     color: var(--muted);
-    font-size: 11px;
+    font-size: 13px;
 }
 
 .session-delete {
@@ -736,9 +736,9 @@ a {
     width: fit-content;
     max-width: min(76%, 780px);
     border-radius: var(--radius-lg);
-    line-height: 1.7;
+    line-height: 1.78;
     animation: bubbleIn 0.35s var(--ease-spring);
-    font-size: 14px;
+    font-size: 17px;
 }
 
 @keyframes bubbleIn {
@@ -775,7 +775,7 @@ a {
     background: transparent;
     box-shadow: none;
     border: 1px dashed var(--line);
-    font-size: 12px;
+    font-size: 14px;
     color: var(--muted);
     text-align: center;
 }
@@ -790,7 +790,7 @@ a {
 .bubble-content .ai-md {
     white-space: normal;
     display: grid;
-    gap: 8px;
+    gap: 9px;
 }
 
 .ai-md p {
@@ -807,13 +807,13 @@ a {
 }
 
 .ai-md h3 {
-    font-size: 16px;
+    font-size: 18px;
     padding-bottom: 6px;
     border-bottom: 1px solid rgba(221, 232, 226, 0.7);
 }
 
 .ai-md h4 {
-    font-size: 14px;
+    font-size: 16px;
     display: inline-flex;
     align-items: center;
     gap: 6px;
@@ -1131,7 +1131,7 @@ a {
 .card p, .card small {
     color: var(--muted);
     line-height: 1.6;
-    font-size: 13px;
+    font-size: 14px;
 }
 
 .appointment-table-wrap {
@@ -1155,12 +1155,12 @@ a {
 
 .appointment-table-title strong {
     color: var(--text);
-    font-size: 14px;
+    font-size: 16px;
 }
 
 .appointment-table-title span {
     color: var(--muted);
-    font-size: 12px;
+    font-size: 14px;
 }
 
 .appointment-table-scroll {
@@ -1233,7 +1233,7 @@ a {
     padding: 12px 14px;
     background: #fffbeb;
     line-height: 1.7;
-    font-size: 13px;
+    font-size: 15px;
     position: relative;
 }
 
@@ -1467,8 +1467,8 @@ input:focus, textarea:focus, select:focus {
     resize: vertical;
     min-height: 56px;
     max-height: 160px;
-    font-size: 14px;
-    line-height: 1.6;
+    font-size: 17px;
+    line-height: 1.7;
 }
 
 .composer-bar {
