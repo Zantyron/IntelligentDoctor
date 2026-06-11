@@ -159,6 +159,7 @@ const modeDescription = document.getElementById("modeDescription");
 const modeToggle = document.getElementById("modeToggle");
 const resultPanel = document.getElementById("resultPanel");
 const recommendationToggle = document.getElementById("recommendationToggle");
+const hideRecommendationBtn = document.getElementById("hideRecommendationBtn");
 const recommendationsEl = document.getElementById("recommendations");
 const evidenceListEl = document.getElementById("evidenceList");
 const draftState = document.getElementById("draftState");
@@ -265,9 +266,24 @@ document.getElementById("deleteAllSessionsBtn").addEventListener("click", async 
 
 // ── Recommendation Toggle ────────────────────────────────────────────
 recommendationToggle.addEventListener("click", () => {
+    if (resultPanel.classList.contains("user-hidden")) {
+        resultPanel.classList.remove("user-hidden");
+        resultPanel.classList.remove("collapsed");
+        recommendationToggle.setAttribute("aria-expanded", "true");
+        recommendationToggle.querySelector("strong").textContent = "收起";
+        return;
+    }
     const collapsed = resultPanel.classList.toggle("collapsed");
     recommendationToggle.setAttribute("aria-expanded", String(!collapsed));
     recommendationToggle.querySelector("strong").textContent = collapsed ? "展开" : "收起";
+});
+
+hideRecommendationBtn.addEventListener("click", () => {
+    resultPanel.classList.add("user-hidden");
+    resultPanel.classList.add("collapsed");
+    recommendationToggle.setAttribute("aria-expanded", "false");
+    recommendationToggle.querySelector("strong").textContent = "显示";
+    showToast("智能推荐已隐藏，点击右下角入口可重新显示", "info", 2200);
 });
 
 // ── Chat Form Submit ─────────────────────────────────────────────────
@@ -568,6 +584,7 @@ function appendBubble(role, content, messageId) {
 // ── Render Result ────────────────────────────────────────────────────
 function renderResult(metadata) {
     resultPanel.classList.remove("hidden");
+    resultPanel.classList.remove("user-hidden");
     resultPanel.classList.add("collapsed");
     recommendationToggle.setAttribute("aria-expanded", "false");
     recommendationToggle.querySelector("strong").textContent = "展开";
@@ -700,23 +717,57 @@ async function loadSessions() {
         const data = await fetchJson("/api/chat/sessions").catch(() => []);
         sessionList.innerHTML = data.length
             ? data.map(item => `
-                <button class="session-item ${item.sessionId === sessionId ? "active" : ""}"
-                        data-session="${escapeHtml(item.sessionId)}" type="button">
-                    <span>${escapeHtml(item.title || "新对话")}</span>
-                    <small>${escapeHtml(item.mode || "-")}</small>
-                </button>
+                <div class="session-row ${item.sessionId === sessionId ? "active" : ""}">
+                    <button class="session-item"
+                            data-session="${escapeHtml(item.sessionId)}" type="button">
+                        <span>${escapeHtml(item.title || "新对话")}</span>
+                        <small>${escapeHtml(item.mode || "-")}</small>
+                    </button>
+                    <button class="session-delete" data-delete-session="${escapeHtml(item.sessionId)}" type="button" title="删除该对话">
+                        删除
+                    </button>
+                </div>
             `).join("")
             : '<div class="empty">暂无历史对话</div>';
 
         sessionList.querySelectorAll("[data-session]").forEach(button => {
             button.addEventListener("click", () => openSession(button.dataset.session));
         });
+        sessionList.querySelectorAll("[data-delete-session]").forEach(button => {
+            button.addEventListener("click", event => {
+                event.stopPropagation();
+                deleteSession(button.dataset.deleteSession);
+            });
+        });
     } catch (e) {
         sessionList.innerHTML = '<div class="empty">加载失败</div>';
     }
 }
 
-// ── Open Session ─────────────────────────────────────────────────────
+async function deleteSession(targetSessionId) {
+    if (!window.confirm("确认删除这个历史对话吗？数据库中的消息、Prompt 轨迹和工具调用记录会同步删除。")) {
+        return;
+    }
+    try {
+        await fetchJson(`/api/chat/sessions?sessionId=${encodeURIComponent(targetSessionId)}`, { method: "DELETE" });
+        if (targetSessionId === sessionId) {
+            sessionId = createSessionId();
+            localStorage.setItem("ACTIVE_SESSION_ID", sessionId);
+            currentDraft = null;
+            chatLog.innerHTML = "";
+            resultPanel.classList.add("hidden");
+            document.getElementById("draftCard").classList.add("hidden");
+            confirmForm.classList.add("hidden");
+            orderResult.classList.add("hidden");
+            renderWelcome();
+        }
+        await loadSessions();
+        showToast("历史对话已删除", "success", 2200);
+    } catch (e) {
+        showToast("删除失败：" + e.message, "error");
+    }
+}
+
 async function openSession(nextSessionId) {
     sessionId = nextSessionId;
     localStorage.setItem("ACTIVE_SESSION_ID", sessionId);

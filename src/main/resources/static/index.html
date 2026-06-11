@@ -59,6 +59,15 @@
                 <button data-prompt="皮肤出现红疹并且瘙痒，想知道皮肤病应该怎么挂号。" type="button">
                     皮肤瘙痒
                 </button>
+                <button data-prompt="胃痛反酸一周，饭后明显，想咨询应该看消化内科还是其他科室。" type="button">
+                    胃痛反酸
+                </button>
+                <button data-prompt="胸口偶尔发闷，活动后更明显，想先判断是否需要尽快就医。" type="button">
+                    胸闷不适
+                </button>
+                <button data-prompt="孩子咳嗽流鼻涕两天，没有明显高热，想问适合挂儿科还是呼吸科。" type="button">
+                    儿童咳嗽
+                </button>
             </div>
         </section>
 
@@ -96,10 +105,13 @@
             </div>
 
             <section id="resultPanel" class="result-panel collapsed hidden">
-                <button id="recommendationToggle" class="result-toggle" type="button" aria-expanded="false">
-                    <span>智能推荐</span>
-                    <strong>展开</strong>
-                </button>
+                <div class="result-actions">
+                    <button id="recommendationToggle" class="result-toggle" type="button" aria-expanded="false">
+                        <span>智能推荐</span>
+                        <strong>展开</strong>
+                    </button>
+                    <button id="hideRecommendationBtn" class="result-hide" type="button" title="隐藏智能推荐">隐藏</button>
+                </div>
                 <div class="result-content">
                     <div id="recommendations" class="cards"></div>
                     <div id="evidenceList" class="evidence-list"></div>

@@ -483,7 +483,8 @@ a {
 /* ── Quick Prompts ─────────────────────────────────────────────────── */
 .quick-prompts {
     display: grid;
-    gap: 6px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
 }
 
 .quick-prompts button {
@@ -530,6 +531,13 @@ a {
     flex: 1;
 }
 
+.session-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 42px;
+    align-items: stretch;
+    gap: 6px;
+}
+
 .session-item {
     border: 1px solid var(--line);
     border-radius: var(--radius);
@@ -544,14 +552,13 @@ a {
     font-size: 13px;
 }
 
-.session-item:hover {
+.session-row:hover .session-item {
     border-color: var(--primary-light);
     background: var(--surface-tint);
-    transform: translateX(2px);
     box-shadow: var(--shadow-xs);
 }
 
-.session-item.active {
+.session-row.active .session-item {
     border-color: var(--primary);
     background: var(--primary-soft);
     box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.1);
@@ -560,6 +567,24 @@ a {
 .session-item small {
     color: var(--muted);
     font-size: 11px;
+}
+
+.session-delete {
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--surface);
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all var(--duration-fast) var(--ease-out);
+}
+
+.session-delete:hover {
+    border-color: rgba(239, 68, 68, 0.35);
+    background: var(--danger-soft);
+    color: var(--danger);
+    box-shadow: var(--shadow-xs);
 }
 
 .empty {
@@ -870,8 +895,26 @@ a {
 
 .result-panel.collapsed .result-toggle {
     border-radius: var(--radius-full);
-    padding: 10px 14px;
+    min-height: 46px;
+    padding: 8px 10px;
     gap: 10px;
+}
+
+.result-panel.user-hidden {
+    width: auto;
+    min-width: 128px;
+    max-width: 168px;
+    border-radius: var(--radius-full);
+}
+
+.result-panel.user-hidden .result-content,
+.result-panel.user-hidden .result-hide {
+    display: none;
+}
+
+.result-panel.user-hidden .result-actions,
+.result-panel.user-hidden .result-toggle {
+    border-radius: var(--radius-full);
 }
 
 @keyframes slideUp {
@@ -885,10 +928,18 @@ a {
     }
 }
 
+.result-actions {
+    width: 100%;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: stretch;
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+}
+
 .result-toggle {
     width: 100%;
     border: 0;
-    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    background: transparent;
     color: #fff;
     padding: 12px 16px;
     display: flex;
@@ -900,8 +951,24 @@ a {
     transition: background var(--duration-fast);
 }
 
-.result-toggle:hover {
+.result-actions:hover {
     background: linear-gradient(135deg, var(--primary-light), var(--primary));
+}
+
+.result-hide {
+    border: 0;
+    border-left: 1px solid rgba(255, 255, 255, 0.24);
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.92);
+    padding: 0 12px;
+    font-size: 12px;
+    font-weight: 800;
+    cursor: pointer;
+    transition: background var(--duration-fast);
+}
+
+.result-hide:hover {
+    background: rgba(255, 255, 255, 0.2);
 }
 
 .result-toggle strong {
@@ -1977,6 +2044,10 @@ input:focus, textarea:focus, select:focus {
 }
 
 @media (max-width: 420px) {
+    .quick-prompts {
+        grid-template-columns: 1fr;
+    }
+
     .form-grid,
     .draft-summary {
         grid-template-columns: 1fr;
