@@ -10,9 +10,14 @@ import java.util.Optional;
 
 public interface RegistrationDraftRepository extends JpaRepository<RegistrationDraftEntity, String> {
     List<RegistrationDraftEntity> findBySessionIdOrderByCreatedAtDesc(String sessionId);
+    List<RegistrationDraftEntity> findByHospitalIdAndSessionIdOrderByCreatedAtDesc(String hospitalId, String sessionId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<RegistrationDraftEntity> findWithLockById(String id);
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    Optional<RegistrationDraftEntity> findWithLockByHospitalIdAndId(String hospitalId, String id);
+
     void deleteBySessionIdAndStatusNot(String sessionId, String status);
+    void deleteByHospitalIdAndSessionIdAndStatusNot(String hospitalId, String sessionId, String status);
 }

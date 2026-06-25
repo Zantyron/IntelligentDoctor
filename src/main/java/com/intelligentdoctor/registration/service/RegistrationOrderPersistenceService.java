@@ -28,16 +28,16 @@ public class RegistrationOrderPersistenceService {
 
     @Transactional
     public RegistrationOrderEntity persist(RegistrationReservedEvent event) {
-        RegistrationDraftEntity draft = draftRepository.findById(event.draftId())
+        RegistrationDraftEntity draft = draftRepository.findWithLockByHospitalIdAndId(event.hospitalId(), event.draftId())
                 .orElseThrow(() -> new EntityNotFoundException("registration draft not found"));
 
-        return orderRepository.findByDraftId(draft.getId())
+        return orderRepository.findByHospitalIdAndDraftId(event.hospitalId(), draft.getId())
                 .orElseGet(() -> createOrder(draft));
     }
 
     private RegistrationOrderEntity createOrder(RegistrationDraftEntity draft) {
         if ("CONFIRMED".equalsIgnoreCase(draft.getStatus())) {
-            return orderRepository.findByDraftId(draft.getId())
+            return orderRepository.findByHospitalIdAndDraftId(draft.getHospitalId(), draft.getId())
                     .orElseThrow(() -> new EntityNotFoundException("registration order not found"));
         }
 
@@ -66,7 +66,7 @@ public class RegistrationOrderPersistenceService {
             draftRepository.save(draft);
             return saved;
         } catch (DataIntegrityViolationException ex) {
-            return orderRepository.findByDraftId(draft.getId()).orElseThrow(() -> ex);
+            return orderRepository.findByHospitalIdAndDraftId(draft.getHospitalId(), draft.getId()).orElseThrow(() -> ex);
         }
     }
 

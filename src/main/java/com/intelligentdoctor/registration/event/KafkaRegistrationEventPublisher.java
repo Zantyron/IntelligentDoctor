@@ -2,9 +2,12 @@ package com.intelligentdoctor.registration.event;
 
 import com.intelligentdoctor.common.JsonUtils;
 import com.intelligentdoctor.config.AppProperties;
+import com.intelligentdoctor.registration.entity.RegistrationOrderEntity;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
+
+import java.util.Optional;
 
 @Component
 @ConditionalOnProperty(prefix = "app.registration", name = "event-provider", havingValue = "kafka")
@@ -23,8 +26,9 @@ public class KafkaRegistrationEventPublisher implements RegistrationEventPublish
     }
 
     @Override
-    public void publish(RegistrationReservedEvent event) {
-        kafkaTemplate.send(properties.getRegistration().getKafkaTopic(), event.token(), jsonUtils.toJson(event));
+    public Optional<RegistrationOrderEntity> publish(RegistrationReservedEvent event) {
+        kafkaTemplate.send(properties.getRegistration().getKafkaTopic(), event.token(), jsonUtils.toJson(event)).join();
+        return Optional.empty();
     }
 
     @Override

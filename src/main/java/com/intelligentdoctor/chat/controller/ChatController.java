@@ -7,8 +7,8 @@ import com.intelligentdoctor.chat.history.ChatHistoryService;
 import com.intelligentdoctor.chat.model.ChatMode;
 import com.intelligentdoctor.chat.service.ChatOrchestratorService;
 import com.intelligentdoctor.common.ApiResponse;
-import com.intelligentdoctor.config.AppProperties;
 import com.intelligentdoctor.registration.service.RegistrationService;
+import com.intelligentdoctor.tenant.TenantContext;
 import jakarta.validation.Valid;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -28,16 +28,13 @@ public class ChatController {
 
     private final ChatOrchestratorService chatOrchestratorService;
     private final ChatHistoryService chatHistoryService;
-    private final AppProperties properties;
     private final RegistrationService registrationService;
 
     public ChatController(ChatOrchestratorService chatOrchestratorService,
                           ChatHistoryService chatHistoryService,
-                          AppProperties properties,
                           RegistrationService registrationService) {
         this.chatOrchestratorService = chatOrchestratorService;
         this.chatHistoryService = chatHistoryService;
-        this.properties = properties;
         this.registrationService = registrationService;
     }
 
@@ -52,13 +49,13 @@ public class ChatController {
     }
 
     @GetMapping("/sessions")
-    public ApiResponse<List<ChatSessionView>> sessions(@RequestParam(required = false) String hospitalId) {
-        return ApiResponse.success(chatHistoryService.listSessions(resolveHospitalId(hospitalId)));
+    public ApiResponse<List<ChatSessionView>> sessions() {
+        return ApiResponse.success(chatHistoryService.listSessions(TenantContext.requireHospitalId()));
     }
 
     @GetMapping("/messages")
     public ApiResponse<List<ChatMessageView>> messages(@RequestParam String sessionId) {
-        return ApiResponse.success(chatHistoryService.listMessages(sessionId));
+        return ApiResponse.success(chatHistoryService.listMessages(TenantContext.requireHospitalId(), sessionId));
     }
 
     @DeleteMapping("/messages")
@@ -69,21 +66,19 @@ public class ChatController {
 
     @DeleteMapping("/sessions")
     public ApiResponse<Void> deleteSession(@RequestParam String sessionId) {
-        chatHistoryService.deleteSession(sessionId);
-        registrationService.deleteUnconfirmedDraftsBySession(sessionId);
+        String hospitalId = TenantContext.requireHospitalId();
+        chatHistoryService.deleteSession(hospitalId, sessionId);
+        registrationService.deleteUnconfirmedDraftsBySession(hospitalId, sessionId);
         return ApiResponse.success(null);
     }
 
     @DeleteMapping("/sessions/all")
-    public ApiResponse<Void> deleteAllSessions(@RequestParam(required = false) String hospitalId) {
-        for (ChatSessionView session : chatHistoryService.listSessions(resolveHospitalId(hospitalId))) {
-            registrationService.deleteUnconfirmedDraftsBySession(session.sessionId());
+    public ApiResponse<Void> deleteAllSessions() {
+        String hospitalId = TenantContext.requireHospitalId();
+        for (ChatSessionView session : chatHistoryService.listSessions(hospitalId)) {
+            registrationService.deleteUnconfirmedDraftsBySession(hospitalId, session.sessionId());
         }
-        chatHistoryService.deleteAllSessions(resolveHospitalId(hospitalId));
+        chatHistoryService.deleteAllSessions(hospitalId);
         return ApiResponse.success(null);
-    }
-
-    private String resolveHospitalId(String hospitalId) {
-        return hospitalId == null || hospitalId.isBlank() ? properties.getDefaultHospitalId() : hospitalId;
     }
 }

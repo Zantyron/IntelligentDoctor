@@ -16,6 +16,7 @@ public class AppProperties {
     private Admin admin = new Admin();
     private Executor executor = new Executor();
     private RateLimit rateLimit = new RateLimit();
+    private java.util.List<Tenant> tenants = new java.util.ArrayList<>();
 
     public String getDefaultHospitalId() {
         return defaultHospitalId;
@@ -95,6 +96,14 @@ public class AppProperties {
 
     public void setRateLimit(RateLimit rateLimit) {
         this.rateLimit = rateLimit;
+    }
+
+    public java.util.List<Tenant> getTenants() {
+        return tenants;
+    }
+
+    public void setTenants(java.util.List<Tenant> tenants) {
+        this.tenants = tenants;
     }
 
     public static class History {
@@ -320,6 +329,8 @@ public class AppProperties {
         private long chunkDelayMillis = 35;
         @Min(1000)
         private long timeoutMillis = 300000;
+        @Min(1)
+        private int maxConcurrentRequests = 8;
 
         public int getChunkSize() {
             return chunkSize;
@@ -343,6 +354,14 @@ public class AppProperties {
 
         public void setTimeoutMillis(long timeoutMillis) {
             this.timeoutMillis = timeoutMillis;
+        }
+
+        public int getMaxConcurrentRequests() {
+            return maxConcurrentRequests;
+        }
+
+        public void setMaxConcurrentRequests(int maxConcurrentRequests) {
+            this.maxConcurrentRequests = maxConcurrentRequests;
         }
     }
 
@@ -388,6 +407,8 @@ public class AppProperties {
     public static class Admin {
         private String username = "admin";
         private String password = "admin";
+        private String tokenSecret = "change-me-admin-token-secret";
+        private long tokenTtlMinutes = 720;
 
         public String getUsername() {
             return username;
@@ -403,6 +424,88 @@ public class AppProperties {
 
         public void setPassword(String password) {
             this.password = password;
+        }
+
+        public String getTokenSecret() {
+            return tokenSecret;
+        }
+
+        public void setTokenSecret(String tokenSecret) {
+            this.tokenSecret = tokenSecret;
+        }
+
+        public long getTokenTtlMinutes() {
+            return tokenTtlMinutes;
+        }
+
+        public void setTokenTtlMinutes(long tokenTtlMinutes) {
+            this.tokenTtlMinutes = tokenTtlMinutes;
+        }
+    }
+
+    public static class Tenant {
+        private String hospitalId;
+        private String domain;
+        private String mysqlUrl = "";
+        private String mongoUri = "";
+        private String redisPrefix = "";
+        private String pineconeNamespace = "";
+        private boolean enabled = true;
+
+        public String getHospitalId() {
+            return hospitalId;
+        }
+
+        public void setHospitalId(String hospitalId) {
+            this.hospitalId = hospitalId;
+        }
+
+        public String getDomain() {
+            return domain;
+        }
+
+        public void setDomain(String domain) {
+            this.domain = domain;
+        }
+
+        public String getMysqlUrl() {
+            return mysqlUrl;
+        }
+
+        public void setMysqlUrl(String mysqlUrl) {
+            this.mysqlUrl = mysqlUrl;
+        }
+
+        public String getMongoUri() {
+            return mongoUri;
+        }
+
+        public void setMongoUri(String mongoUri) {
+            this.mongoUri = mongoUri;
+        }
+
+        public String getRedisPrefix() {
+            return redisPrefix == null || redisPrefix.isBlank() ? "intelligent-doctor:" + hospitalId : redisPrefix;
+        }
+
+        public void setRedisPrefix(String redisPrefix) {
+            this.redisPrefix = redisPrefix;
+        }
+
+        public String getPineconeNamespace() {
+            return pineconeNamespace;
+        }
+
+        public void setPineconeNamespace(String pineconeNamespace) {
+            this.pineconeNamespace = pineconeNamespace;
+        }
+
+        public boolean isEnabled() {
+            return enabled;
+        }
+
+        public void setEnabled(boolean enabled) {
+            this.enabled = enabled;
         }
     }
 

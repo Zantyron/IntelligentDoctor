@@ -1,0 +1,161 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-size: 16px;
+    scroll-behavior: smooth;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-surface-muted font-sans text-gray-900 antialiased;
+    touch-action: manipulation;
+  }
+
+  ::selection {
+    @apply bg-brand-100 text-brand-700;
+  }
+
+  /* 减少动画偏好 */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@layer components {
+  /* ======= 按钮系统 ======= */
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-btn bg-brand-500 px-5 py-2.5 text-base font-bold text-white shadow-sm
+           transition-all duration-200 hover:bg-brand-600 hover:shadow-md active:scale-[0.98]
+           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/30
+           disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:shadow-sm disabled:active:scale-100;
+  }
+
+  .btn-outline {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-btn border-2 border-brand-500 bg-white px-5 py-2.5 text-base font-bold text-brand-600
+           transition-all duration-200 hover:bg-brand-50 hover:shadow-sm active:scale-[0.98]
+           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/30;
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-btn bg-transparent px-3 py-2 text-sm font-semibold text-gray-600
+           transition-colors duration-200 hover:bg-gray-100 active:bg-gray-200
+           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-300;
+  }
+
+  .btn-danger {
+    @apply btn-primary bg-red-500 hover:bg-red-600 focus-visible:ring-red-500/30;
+  }
+
+  /* ======= 输入框 ======= */
+  .input-field {
+    @apply w-full rounded-btn border-2 border-surface-border bg-white px-4 py-2.5 text-base text-gray-900
+           placeholder:text-gray-400
+           transition-colors duration-200
+           focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/15;
+  }
+
+  .select-field {
+    @apply input-field appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%236b7280%22%20stroke-width%3D%222.5%22%3E%3Cpath%20d%3D%22m6%209%206%206%206-6%22%2F%3E%3C%2Fsvg%3E')] bg-[length:22px] bg-[right_10px_center] bg-no-repeat pr-12;
+  }
+
+  /* ======= 卡片 ======= */
+  .card {
+    @apply rounded-xl bg-white;
+  }
+
+  .card-warm {
+    @apply card bg-surface-warm;
+  }
+
+  /* ======= 消息气泡 ======= */
+  .bubble-user {
+    @apply rounded-2xl rounded-br-md bg-brand-500 px-4 py-2.5 text-base font-medium text-white;
+  }
+
+  .bubble-assistant {
+    @apply rounded-2xl rounded-bl-md bg-gray-50 px-4 py-2.5 text-base text-gray-900;
+  }
+
+  .bubble-system {
+    @apply rounded-xl bg-brand-50/60 px-4 py-2 text-center text-sm text-gray-600;
+  }
+
+  /* ======= MD 文章区域 ======= */
+  .prose-chat {
+    @apply prose max-w-none
+           prose-headings:font-bold prose-headings:text-gray-900 prose-headings:mb-1.5 prose-headings:mt-3
+           prose-h2:text-lg prose-h2:border-b prose-h2:border-gray-100 prose-h2:pb-1.5
+           prose-h3:text-base
+           prose-p:text-gray-800 prose-p:leading-relaxed prose-p:mb-2 prose-p:mt-0.5
+           prose-strong:text-brand-700 prose-strong:font-bold
+           prose-li:text-gray-800 prose-li:leading-relaxed prose-li:mb-1 prose-li:text-base
+           prose-ul:mb-2 prose-ul:mt-0.5
+           prose-ol:mb-2 prose-ol:mt-0.5
+           prose-blockquote:border-l-4 prose-blockquote:border-amber-400 prose-blockquote:bg-amber-50 prose-blockquote:rounded-r-lg prose-blockquote:px-4 prose-blockquote:py-2 prose-blockquote:text-sm prose-blockquote:text-gray-700 prose-blockquote:not-italic
+           prose-code:bg-gray-100 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-sm prose-code:font-normal prose-code:before:content-none prose-code:after:content-none;
+  }
+
+  /* ======= 标签 ======= */
+  .badge {
+    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold leading-none;
+  }
+
+  .badge-brand {
+    @apply badge bg-brand-50 text-brand-700;
+  }
+
+  .badge-success {
+    @apply badge bg-green-50 text-green-700;
+  }
+
+  .badge-warn {
+    @apply badge bg-amber-50 text-amber-700;
+  }
+}
+
+@layer utilities {
+  /* ======= 滚动条 ======= */
+  .scrollbar-custom {
+    scrollbar-width: auto;
+    scrollbar-color: #9ca3af transparent;
+  }
+
+  .scrollbar-custom::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .scrollbar-custom::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-custom::-webkit-scrollbar-thumb {
+    @apply rounded-full bg-gray-400 hover:bg-gray-500;
+  }
+
+  /* ======= 过渡动画 ======= */
+  .skeleton {
+    @apply animate-pulse rounded-btn bg-gray-200;
+  }
+
+  .tap-highlight {
+    -webkit-tap-highlight-color: rgba(0, 0, 0, 0.08);
+  }
+
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+
+  .animate-shimmer {
+    background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.3) 50%, transparent 100%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s ease-in-out infinite;
+  }
+}

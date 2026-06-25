@@ -37,6 +37,10 @@ server:
 
 app:
   default-hospital-id: ${APP_DEFAULT_HOSPITAL_ID:hospital-demo}
+  tenants:
+    - hospital-id: ${APP_DEFAULT_HOSPITAL_ID:hospital-demo}
+      domain: ${APP_DEFAULT_TENANT_DOMAIN:localhost}
+      redis-prefix: ${APP_DEFAULT_REDIS_PREFIX:intelligent-doctor:${APP_DEFAULT_HOSPITAL_ID:hospital-demo}}
   history:
     provider: ${APP_HISTORY_PROVIDER:mongodb}
   ai:
@@ -64,6 +68,8 @@ app:
   stream:
     chunk-size: ${APP_STREAM_CHUNK_SIZE:26}
     chunk-delay-millis: ${APP_STREAM_CHUNK_DELAY_MILLIS:35}
+    timeout-millis: ${APP_STREAM_TIMEOUT_MILLIS:300000}
+    max-concurrent-requests: ${APP_STREAM_MAX_CONCURRENT_REQUESTS:8}
   agent:
     paradigm: ${APP_AGENT_PARADIGM:react-rag-tool}
     runtime: ${APP_AGENT_RUNTIME:native}

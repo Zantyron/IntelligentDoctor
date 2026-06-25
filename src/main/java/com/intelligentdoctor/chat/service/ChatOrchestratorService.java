@@ -14,6 +14,7 @@ import com.intelligentdoctor.common.SsePayload;
 import com.intelligentdoctor.config.AppProperties;
 import com.intelligentdoctor.registration.dto.CreateDraftCommand;
 import com.intelligentdoctor.registration.dto.RegistrationDraftView;
+import com.intelligentdoctor.tenant.TenantContext;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -30,6 +31,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executor;
+import java.util.concurrent.RejectedExecutionException;
 
 @Service
 public class ChatOrchestratorService {
@@ -42,81 +44,104 @@ public class ChatOrchestratorService {
     private final ChatHistoryService chatHistoryService;
     private final TriageAgentRuntimeSelector runtimeSelector;
     private final Executor executor;
+    private final StreamConcurrencyLimiter streamConcurrencyLimiter;
 
     public ChatOrchestratorService(AppProperties properties,
                                    CatalogQueryService catalogQueryService,
                                    AgentToolService agentToolService,
                                    ChatHistoryService chatHistoryService,
                                    TriageAgentRuntimeSelector runtimeSelector,
-                                   Executor executor) {
+                                   Executor executor,
+                                   StreamConcurrencyLimiter streamConcurrencyLimiter) {
         this.properties = properties;
         this.catalogQueryService = catalogQueryService;
         this.agentToolService = agentToolService;
         this.chatHistoryService = chatHistoryService;
         this.runtimeSelector = runtimeSelector;
         this.executor = executor;
+        this.streamConcurrencyLimiter = streamConcurrencyLimiter;
     }
 
     public SseEmitter stream(ChatMode mode, ChatStreamRequest request) {
+        String hospitalId = TenantContext.requireHospitalId();
         SseEmitter emitter = new SseEmitter(properties.getStream().getTimeoutMillis());
+        StreamConcurrencyLimiter.Lease lease = streamConcurrencyLimiter.tryAcquire(hospitalId);
+        if (lease == null) {
+            try {
+                emitPayload(emitter, "error", "current hospital is busy, please retry later", Map.of("retryAfterSeconds", 5));
+            } catch (IOException ignored) {
+            }
+            emitter.complete();
+            return emitter;
+        }
+        Runnable releasePermit = lease::close;
+        emitter.onCompletion(releasePermit);
         emitter.onTimeout(emitter::complete);
         emitter.onError(error -> emitter.complete());
-        executor.execute(() -> {
-            try {
-                String hospitalId = resolveHospitalId(request.hospitalId());
-                ZonedDateTime requestTime = ZonedDateTime.now(HOSPITAL_ZONE);
-                emitPayload(emitter, "meta", "开始生成导诊结果", Map.of(
-                        "mode", mode.name(),
-                        "hospitalId", hospitalId,
-                        "agentRuntime", properties.getAgent().getRuntime(),
-                        "requestTime", requestTime.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
-                ));
-
-                StringBuilder streamedReply = new StringBuilder();
-                ChatStreamResult result = runtimeSelector.select().run(new TriageAgentRequest(
-                        mode,
-                        request.sessionId(),
-                        hospitalId,
-                        request.consentToStoreHistory(),
-                        requestTime,
-                        request.messages()
-                ), token -> {
-                    try {
-                        streamedReply.append(token);
-                        emitPayload(emitter, "chunk", token, Map.of());
-                    } catch (IOException ex) {
-                        throw new IllegalStateException("Failed to stream AI token", ex);
-                    }
-                });
-
-                List<Map<String, Object>> appointmentOptions = mode == ChatMode.REGISTRATION
-                        ? buildAppointmentOptions(request.sessionId(), hospitalId, result, requestTime)
-                        : List.of();
-                RegistrationDraftView autoDraft = mode == ChatMode.REGISTRATION
-                        ? createDraftFromRecommendation(request.sessionId(), hospitalId, result, appointmentOptions)
-                        : null;
-                ChatStreamResult enriched = enrichResult(result, autoDraft, appointmentOptions);
-
-                streamText(emitter, remainingText(enriched.reply(), streamedReply));
-                emitPayload(emitter, "result", "", Map.of(
-                        "summary", enriched.summary(),
-                        "possibleConditions", enriched.possibleConditions(),
-                        "recommendations", enriched.recommendations(),
-                        "evidence", enriched.evidence(),
-                        "functionSuggestions", enriched.functionSuggestions(),
-                        "metadata", enriched.metadata()
-                ));
-                chatHistoryService.storeChat(request.sessionId(), hospitalId, mode, request.consentToStoreHistory(),
-                        request.messages(), enriched.reply(), null);
-                emitter.complete();
-            } catch (Exception ex) {
+        try {
+            executor.execute(() -> {
                 try {
-                    emitPayload(emitter, "error", failureMessage(ex), Map.of());
-                } catch (IOException ignored) {
+                    ZonedDateTime requestTime = ZonedDateTime.now(HOSPITAL_ZONE);
+                    emitPayload(emitter, "meta", "stream started", Map.of(
+                            "mode", mode.name(),
+                            "hospitalId", hospitalId,
+                            "agentRuntime", properties.getAgent().getRuntime(),
+                            "requestTime", requestTime.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+                    ));
+
+                    StringBuilder streamedReply = new StringBuilder();
+                    ChatStreamResult result = runtimeSelector.select().run(new TriageAgentRequest(
+                            mode,
+                            request.sessionId(),
+                            hospitalId,
+                            request.consentToStoreHistory(),
+                            requestTime,
+                            request.messages()
+                    ), token -> {
+                        try {
+                            streamedReply.append(token);
+                            emitPayload(emitter, "chunk", token, Map.of());
+                        } catch (IOException ex) {
+                            throw new IllegalStateException("Failed to stream AI token", ex);
+                        }
+                    });
+
+                    List<Map<String, Object>> appointmentOptions = mode == ChatMode.REGISTRATION
+                            ? buildAppointmentOptions(request.sessionId(), hospitalId, result, requestTime)
+                            : List.of();
+                    RegistrationDraftView autoDraft = mode == ChatMode.REGISTRATION
+                            ? createDraftFromRecommendation(request.sessionId(), hospitalId, result, appointmentOptions)
+                            : null;
+                    ChatStreamResult enriched = enrichResult(result, autoDraft, appointmentOptions);
+
+                    streamText(emitter, remainingText(enriched.reply(), streamedReply));
+                    emitPayload(emitter, "result", "", Map.of(
+                            "summary", enriched.summary(),
+                            "possibleConditions", enriched.possibleConditions(),
+                            "recommendations", enriched.recommendations(),
+                            "evidence", enriched.evidence(),
+                            "functionSuggestions", enriched.functionSuggestions(),
+                            "metadata", enriched.metadata()
+                    ));
+                    chatHistoryService.storeChat(request.sessionId(), hospitalId, mode, request.consentToStoreHistory(),
+                            request.messages(), enriched.reply(), null);
+                    emitter.complete();
+                } catch (Exception ex) {
+                    try {
+                        emitPayload(emitter, "error", failureMessage(ex), Map.of());
+                    } catch (IOException ignored) {
+                    }
+                    emitter.complete();
                 }
-                emitter.complete();
+            });
+        } catch (RejectedExecutionException ex) {
+            releasePermit.run();
+            try {
+                emitPayload(emitter, "error", "system busy, please retry later", Map.of("retryAfterSeconds", 5));
+            } catch (IOException ignored) {
             }
-        });
+            emitter.complete();
+        }
         return emitter;
     }
 
@@ -152,7 +177,7 @@ public class ChatOrchestratorService {
         draft.put("status", draftView.status());
         metadata.put("draft", draft);
         return new ChatStreamResult(
-                result.reply() + "\n\n已为你生成挂号草稿，草稿编号: " + draftView.draftId() + "。",
+                result.reply() + "\n\nRegistration draft created: " + draftView.draftId(),
                 result.summary(),
                 result.possibleConditions(),
                 result.recommendations(),
@@ -161,6 +186,7 @@ public class ChatOrchestratorService {
                 metadata
         );
     }
+
 
     private List<Map<String, Object>> buildAppointmentOptions(String sessionId,
                                                               String hospitalId,
@@ -225,32 +251,37 @@ public class ChatOrchestratorService {
     }
 
     private LocalTime periodEnd(String period) {
-        String value = period == null ? "" : period;
-        if (value.contains("上午") || value.toLowerCase().contains("morning")) {
+        String value = period == null ? "" : period.toLowerCase();
+        if (value.contains("morning") || periodContains(period, "上午")) {
             return LocalTime.NOON;
         }
-        if (value.contains("下午") || value.toLowerCase().contains("afternoon")) {
+        if (value.contains("afternoon") || periodContains(period, "下午")) {
             return LocalTime.of(18, 0);
         }
-        if (value.contains("晚上") || value.contains("夜") || value.toLowerCase().contains("evening")) {
+        if (value.contains("evening") || periodContains(period, "晚上") || periodContains(period, "夜")) {
             return LocalTime.of(23, 59);
         }
         return LocalTime.MAX;
     }
 
     private int periodRank(String period) {
-        String value = period == null ? "" : period;
-        if (value.contains("上午") || value.toLowerCase().contains("morning")) {
+        String value = period == null ? "" : period.toLowerCase();
+        if (value.contains("morning") || periodContains(period, "上午")) {
             return 1;
         }
-        if (value.contains("下午") || value.toLowerCase().contains("afternoon")) {
+        if (value.contains("afternoon") || periodContains(period, "下午")) {
             return 2;
         }
-        if (value.contains("晚上") || value.contains("夜") || value.toLowerCase().contains("evening")) {
+        if (value.contains("evening") || periodContains(period, "晚上") || periodContains(period, "夜")) {
             return 3;
         }
         return 9;
     }
+
+    private boolean periodContains(String period, String keyword) {
+        return period != null && period.contains(keyword);
+    }
+
 
     private RegistrationDraftView createDraftFromRecommendation(String sessionId,
                                                                String hospitalId,
@@ -369,11 +400,8 @@ public class ChatOrchestratorService {
         emitter.send(SseEmitter.event().name(type).data(new SsePayload(type, content, metadata)));
     }
 
-    private String resolveHospitalId(String hospitalId) {
-        return hospitalId == null || hospitalId.isBlank() ? properties.getDefaultHospitalId() : hospitalId;
-    }
 
     private String failureMessage(Exception ex) {
-        return "AI 服务暂时不可用: " + ex.getMessage() + "。请稍后重试；如症状明显加重，请优先线下就医。";
+        return "AI service unavailable: " + ex.getMessage();
     }
 }

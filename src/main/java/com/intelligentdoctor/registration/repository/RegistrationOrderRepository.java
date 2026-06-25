@@ -9,5 +9,6 @@ import java.util.Optional;
 public interface RegistrationOrderRepository extends JpaRepository<RegistrationOrderEntity, String> {
     Optional<RegistrationOrderEntity> findByOrderNo(String orderNo);
     Optional<RegistrationOrderEntity> findByDraftId(String draftId);
+    Optional<RegistrationOrderEntity> findByHospitalIdAndDraftId(String hospitalId, String draftId);
     List<RegistrationOrderEntity> findByHospitalIdOrderByCreatedAtDesc(String hospitalId);
 }

@@ -3,6 +3,8 @@ package com.intelligentdoctor.registration.stock;
 import com.intelligentdoctor.catalog.entity.ScheduleSlotEntity;
 import com.intelligentdoctor.catalog.repository.ScheduleSlotRepository;
 import com.intelligentdoctor.registration.dto.ReservationToken;
+import com.intelligentdoctor.tenant.TenantContext;
+import com.intelligentdoctor.tenant.TenantRegistry;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
@@ -18,13 +20,16 @@ public class RedisLuaSlotStockService implements SlotStockService {
 
     private final StringRedisTemplate redisTemplate;
     private final ScheduleSlotRepository scheduleSlotRepository;
+    private final TenantRegistry tenantRegistry;
     private final DefaultRedisScript<Long> reserveScript;
     private final DefaultRedisScript<Long> releaseScript;
 
     public RedisLuaSlotStockService(StringRedisTemplate redisTemplate,
-                                    ScheduleSlotRepository scheduleSlotRepository) {
+                                    ScheduleSlotRepository scheduleSlotRepository,
+                                    TenantRegistry tenantRegistry) {
         this.redisTemplate = redisTemplate;
         this.scheduleSlotRepository = scheduleSlotRepository;
+        this.tenantRegistry = tenantRegistry;
         this.reserveScript = new DefaultRedisScript<>();
         this.reserveScript.setResultType(Long.class);
         this.reserveScript.setScriptText("""
@@ -57,7 +62,8 @@ public class RedisLuaSlotStockService implements SlotStockService {
 
     @Override
     public ReservationToken reserve(String slotId, int quantity) {
-        String key = stockKey(slotId);
+        String hospitalId = TenantContext.requireHospitalId();
+        String key = stockKey(hospitalId, slotId);
         ensureWarm(key, slotId);
         Long result = redisTemplate.execute(reserveScript, List.of(key), String.valueOf(quantity));
         if (result == null || result < 0) {
@@ -65,14 +71,15 @@ public class RedisLuaSlotStockService implements SlotStockService {
             return new ReservationToken(false, null, message);
         }
         String token = "redis-" + UUID.randomUUID();
-        redisTemplate.opsForValue().set(reservationKey(token), reservationValue(slotId, quantity), 30, TimeUnit.MINUTES);
+        redisTemplate.opsForValue().set(reservationKey(hospitalId, token), reservationValue(slotId, quantity), 30, TimeUnit.MINUTES);
         return new ReservationToken(true, token, "Redis Lua reserved");
     }
 
     @Override
     public void release(String slotId, String token, int quantity) {
+        String hospitalId = TenantContext.requireHospitalId();
         redisTemplate.execute(releaseScript,
-                List.of(stockKey(slotId), reservationKey(token)),
+                List.of(stockKey(hospitalId, slotId), reservationKey(hospitalId, token)),
                 reservationValue(slotId, quantity),
                 String.valueOf(quantity));
     }
@@ -91,12 +98,12 @@ public class RedisLuaSlotStockService implements SlotStockService {
                 .ifPresent(stock -> redisTemplate.opsForValue().setIfAbsent(key, String.valueOf(stock), 2, TimeUnit.DAYS));
     }
 
-    private String stockKey(String slotId) {
-        return "intelligent-doctor:slot-stock:" + slotId;
+    private String stockKey(String hospitalId, String slotId) {
+        return tenantRegistry.redisPrefix(hospitalId) + ":slot-stock:" + slotId;
     }
 
-    private String reservationKey(String token) {
-        return "intelligent-doctor:reservation:" + token;
+    private String reservationKey(String hospitalId, String token) {
+        return tenantRegistry.redisPrefix(hospitalId) + ":reservation:" + token;
     }
 
     private String reservationValue(String slotId, int quantity) {

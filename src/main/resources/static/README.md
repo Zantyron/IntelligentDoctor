@@ -1,15 +1,23 @@
 # static
 
-前端静态资源目录，Spring Boot 启动后会直接暴露这些页面。
+前端静态资源目录。
 
-- `index.html`: 患者端入口。
-- `app.js`: 患者端交互逻辑，包含流式聊天、会话管理和挂号确认。
-- `admin.html`: 管理后台入口。
-- `admin.js`: 后台登录、文件导入、任务状态和系统状态交互。
-- `styles.css`: 医院风格主题、聊天布局和后台页面样式。
-- `config.js`: 前端运行时配置。
+## 患者端（中老年友好 · Vue 3）
 
-启动项目后访问:
+由 `frontend/` 构建，特点：
 
-- 患者端: `http://localhost:8080/`
-- 管理后台: `http://localhost:8080/admin.html`
+- 大字体、大按钮，操作简单
+- 只需描述病情，Agent 帮看科、帮挂号
+- 智能推荐**默认隐藏**，用户需要时再点展开
+
+```bash
+cd frontend && npm run dev    # 开发
+cd frontend && npm run build  # 构建到本目录
+```
+
+## 管理后台
+
+- `admin.html` / `admin.js`
+- `config.js` — 可选 API 地址配置
+
+访问：`http://localhost:8080/`（患者端）、`http://localhost:8080/admin.html`（后台）

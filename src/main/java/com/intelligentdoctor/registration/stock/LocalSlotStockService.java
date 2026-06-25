@@ -22,8 +22,8 @@ public class LocalSlotStockService implements SlotStockService {
 
     @Override
     @Transactional
-    public synchronized ReservationToken reserve(String slotId, int quantity) {
-        ScheduleSlotEntity slot = scheduleSlotRepository.findById(slotId)
+    public ReservationToken reserve(String slotId, int quantity) {
+        ScheduleSlotEntity slot = scheduleSlotRepository.findWithLockById(slotId)
                 .orElseThrow(() -> new EntityNotFoundException("排班不存在"));
         if (slot.getStockAvailable() < quantity) {
             return new ReservationToken(false, null, "号源已不足");
@@ -35,8 +35,8 @@ public class LocalSlotStockService implements SlotStockService {
 
     @Override
     @Transactional
-    public synchronized void release(String slotId, String token, int quantity) {
-        scheduleSlotRepository.findById(slotId).ifPresent(slot -> {
+    public void release(String slotId, String token, int quantity) {
+        scheduleSlotRepository.findWithLockById(slotId).ifPresent(slot -> {
             slot.setStockAvailable(slot.getStockAvailable() + quantity);
             scheduleSlotRepository.save(slot);
         });

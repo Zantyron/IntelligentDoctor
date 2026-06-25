@@ -13,6 +13,7 @@ import com.intelligentdoctor.registration.event.RegistrationReservedEvent;
 import com.intelligentdoctor.registration.repository.RegistrationDraftRepository;
 import com.intelligentdoctor.registration.repository.RegistrationOrderRepository;
 import com.intelligentdoctor.registration.stock.SlotStockService;
+import com.intelligentdoctor.tenant.TenantContext;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -66,10 +67,11 @@ public class RegistrationService {
 
     @Transactional
     public RegistrationOrderView confirm(ConfirmRegistrationRequest request) {
-        RegistrationDraftEntity draft = draftRepository.findWithLockById(request.draftId())
+        String hospitalId = TenantContext.requireHospitalId();
+        RegistrationDraftEntity draft = draftRepository.findWithLockByHospitalIdAndId(hospitalId, request.draftId())
                 .orElseThrow(() -> new EntityNotFoundException("registration draft not found"));
 
-        RegistrationOrderEntity existingOrder = orderRepository.findByDraftId(draft.getId()).orElse(null);
+        RegistrationOrderEntity existingOrder = orderRepository.findByHospitalIdAndDraftId(hospitalId, draft.getId()).orElse(null);
         if (existingOrder != null) {
             chatHistoryService.storeToolTrace(request.sessionId(), "confirmRegistration",
                     Map.of("draftId", request.draftId(), "idempotencyKey", idempotencyKey(request)),
@@ -93,12 +95,12 @@ public class RegistrationService {
 
         RegistrationOrderEntity order;
         try {
-            RegistrationReservedEvent event = new RegistrationReservedEvent(token.token(), draft.getId(), draft.getSlotId(), draft.getSessionId());
-            eventPublisher.publish(event);
+            RegistrationReservedEvent event = new RegistrationReservedEvent(token.token(), hospitalId, draft.getId(), draft.getSlotId(), draft.getSessionId());
+            order = eventPublisher.publish(event)
+                    .orElseGet(() -> waitForOrderByDraftId(hospitalId, draft.getId()));
             chatHistoryService.storeToolTrace(request.sessionId(), "confirmRegistration",
                     Map.of("draftId", request.draftId(), "slotId", draft.getSlotId(), "idempotencyKey", idempotencyKey(request)),
                     Map.of("token", token.token(), "provider", eventPublisher.providerName()));
-            order = waitForOrderByDraftId(draft.getId());
         } catch (RuntimeException ex) {
             slotStockService.release(draft.getSlotId(), token.token(), 1);
             throw ex;
@@ -113,21 +115,21 @@ public class RegistrationService {
                 .toList();
     }
 
-    public RegistrationDraftView latestDraft(String sessionId) {
-        return draftRepository.findBySessionIdOrderByCreatedAtDesc(sessionId).stream()
+    public RegistrationDraftView latestDraft(String hospitalId, String sessionId) {
+        return draftRepository.findByHospitalIdAndSessionIdOrderByCreatedAtDesc(hospitalId, sessionId).stream()
                 .findFirst()
                 .map(this::toView)
                 .orElse(null);
     }
 
     @Transactional
-    public void deleteUnconfirmedDraftsBySession(String sessionId) {
-        draftRepository.deleteBySessionIdAndStatusNot(sessionId, "CONFIRMED");
+    public void deleteUnconfirmedDraftsBySession(String hospitalId, String sessionId) {
+        draftRepository.deleteByHospitalIdAndSessionIdAndStatusNot(hospitalId, sessionId, "CONFIRMED");
     }
 
-    private RegistrationOrderEntity waitForOrderByDraftId(String draftId) {
+    private RegistrationOrderEntity waitForOrderByDraftId(String hospitalId, String draftId) {
         for (int i = 0; i < 20; i++) {
-            RegistrationOrderEntity order = orderRepository.findByDraftId(draftId).orElse(null);
+            RegistrationOrderEntity order = orderRepository.findByHospitalIdAndDraftId(hospitalId, draftId).orElse(null);
             if (order != null) {
                 return order;
             }

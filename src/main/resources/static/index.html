@@ -1,180 +1,24 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="智能导诊 - AI驱动的智能分诊与挂号系统">
-    <meta name="theme-color" content="#0d9488">
-    <title>智能导诊 · Intelligent Triage</title>
-    <link rel="stylesheet" href="/styles.css?v=20260608">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-</head>
-<body class="patient-body">
-
-<!-- Toast Container -->
-<div class="toast-container" id="toastContainer" aria-live="polite"></div>
-
-<!-- Celebration Overlay -->
-<div id="celebrationOverlay" class="celebration-overlay hidden">
-    <div class="celebration-card">
-        <div class="checkmark">✓</div>
-        <h2>挂号成功</h2>
-        <p id="celebrationMessage">您的挂号订单已确认</p>
-    </div>
-</div>
-
-<main class="patient-shell">
-    <aside class="patient-sidebar">
-        <div class="brand-block">
-            <div class="brand-mark">ID</div>
-            <div>
-                <div class="brand-title">智能导诊</div>
-                <div class="brand-subtitle">患者服务工作台</div>
-            </div>
-        </div>
-
-        <button id="newSessionBtn" class="primary-wide" type="button">
-            <span class="btn-icon">+</span> 新开对话
-        </button>
-
-        <section class="side-section">
-            <div class="side-title">导诊模式</div>
-            <div class="mode-toggle" id="modeToggle">
-                <button class="mode-btn active" data-mode="diagnosis" type="button">病情咨询</button>
-                <button class="mode-btn" data-mode="registration" type="button">智能挂号</button>
-            </div>
-        </section>
-
-        <section class="side-section">
-            <div class="side-title">常用描述</div>
-            <div class="quick-prompts">
-                <button data-prompt="最近三天一直发热咳嗽，晚上更明显，想看看适合挂什么科。" type="button">
-                    发热咳嗽
-                </button>
-                <button data-prompt="最近头痛头晕，偶尔恶心，想先判断一下该看哪个科。" type="button">
-                    头痛头晕
-                </button>
-                <button data-prompt="皮肤出现红疹并且瘙痒，想知道皮肤病应该怎么挂号。" type="button">
-                    皮肤瘙痒
-                </button>
-                <button data-prompt="胃痛反酸一周，饭后明显，想咨询应该看消化内科还是其他科室。" type="button">
-                    胃痛反酸
-                </button>
-                <button data-prompt="胸口偶尔发闷，活动后更明显，想先判断是否需要尽快就医。" type="button">
-                    胸闷不适
-                </button>
-                <button data-prompt="孩子咳嗽流鼻涕两天，没有明显高热，想问适合挂儿科还是呼吸科。" type="button">
-                    儿童咳嗽
-                </button>
-            </div>
-        </section>
-
-        <section class="side-section session-section">
-            <div class="side-row">
-                <div class="side-title">历史对话</div>
-                <button id="deleteAllSessionsBtn" class="text-btn danger" type="button">全部删除</button>
-            </div>
-            <div id="sessionList" class="session-list">
-                <div class="skeleton skeleton-text" style="width:80%"></div>
-                <div class="skeleton skeleton-text" style="width:60%"></div>
-                <div class="skeleton skeleton-text" style="width:70%"></div>
-            </div>
-        </section>
-
-        <label class="consent">
-            <input type="checkbox" id="consent" checked>
-            <span>保存聊天记录，用于上下文记忆和排查问题</span>
-        </label>
-    </aside>
-
-    <section class="patient-main">
-        <header class="patient-topbar">
-            <div>
-                <div class="eyebrow">Triage Assistant</div>
-                <h1 id="modeTitle">病情咨询</h1>
-                <p id="modeDescription">请描述症状、持续时间、年龄性别、体温和既往病史。系统会结合知识库给出导诊建议。</p>
-            </div>
-            <button id="adminEntryBtn" class="admin-link" type="button">管理后台</button>
-        </header>
-
-        <section class="chat-stage">
-            <div id="chatLog" class="chat-log" aria-live="polite">
-                <!-- Welcome message rendered by JS -->
-            </div>
-
-            <section id="resultPanel" class="result-panel collapsed hidden">
-                <div class="result-actions">
-                    <button id="recommendationToggle" class="result-toggle" type="button" aria-expanded="false">
-                        <span>智能推荐</span>
-                        <strong>展开</strong>
-                    </button>
-                    <button id="hideRecommendationBtn" class="result-hide" type="button" title="隐藏智能推荐">隐藏</button>
-                </div>
-                <div class="result-content">
-                    <div id="recommendations" class="cards"></div>
-                    <div id="evidenceList" class="evidence-list"></div>
-                </div>
-            </section>
-        </section>
-
-        <section class="draft-card hidden" id="draftCard">
-            <div class="draft-head">
-                <div>
-                    <div class="eyebrow">Registration Draft</div>
-                    <h2>挂号信息</h2>
-                </div>
-                <span id="draftBadge">未生成</span>
-            </div>
-            <div id="draftState" class="draft-empty">进入智能挂号模式并描述诉求后，系统会尝试生成待确认挂号草稿。</div>
-            <form id="confirmForm" class="confirm-form hidden">
-                <div class="form-grid">
-                    <label>姓名<input id="patientName" autocomplete="name" placeholder="请输入姓名" required></label>
-                    <label>手机号<input id="patientPhone" autocomplete="tel" placeholder="请输入手机号" required></label>
-                    <label>身份证号<input id="idCard" autocomplete="off" placeholder="请输入身份证号" required></label>
-                    <label>性别
-                        <select id="gender" required>
-                            <option value="">请选择</option>
-                            <option value="男">男</option>
-                            <option value="女">女</option>
-                            <option value="其他">其他</option>
-                        </select>
-                    </label>
-                    <label>年龄<input id="age" type="number" min="0" max="130" placeholder="请输入年龄" required></label>
-                </div>
-                <button type="submit">确认挂号</button>
-            </form>
-            <div id="orderResult" class="order-result hidden"></div>
-        </section>
-
-        <form id="chatForm" class="composer">
-            <textarea id="messageInput" placeholder="描述你的症状，例如：我皮肤起红疹两天，很痒，没有发热..." rows="3"></textarea>
-            <div class="composer-bar">
-                <small id="streamState">慢慢说，我们会耐心听清楚每一处不舒服，陪您一步步找到合适的就诊方向。</small>
-                <button id="sendBtn" type="submit">
-                    <span class="send-icon">↑</span> 发送
-                </button>
-            </div>
-        </form>
-    </section>
-</main>
-
-<dialog id="adminLoginDialog" class="login-dialog">
-    <form method="dialog" id="adminLoginForm">
-        <h2>后台身份验证</h2>
-        <p>请输入管理员账号密码以访问后台管理系统。</p>
-        <label>账号<input id="adminUsername" autocomplete="username" placeholder="admin" required></label>
-        <label>密码<input id="adminPassword" type="password" autocomplete="current-password" placeholder="······" required></label>
-        <div id="adminLoginError" class="form-error hidden">账号或密码不正确，请重试。</div>
-        <div class="dialog-actions">
-            <button value="cancel" class="text-btn" type="button" id="cancelAdminLogin">取消</button>
-            <button value="confirm" class="primary-btn" type="submit">进入后台</button>
-        </div>
-    </form>
-</dialog>
-
-<script src="/config.js?v=20260608"></script>
-<script src="/app.js?v=20260608"></script>
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover"
+    />
+    <meta name="description" content="智能导诊助手 — 帮您看该挂什么科，还能帮您预约挂号。简单说出您的症状，剩下的交给我们。" />
+    <meta name="theme-color" content="#0d9488" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <title>智能导诊助手 — 帮您看该挂什么科</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%230d9488' rx='20' width='100' height='100'/><text x='50' y='68' font-size='48' text-anchor='middle' fill='white' font-family='sans-serif' font-weight='bold'>医</text></svg>"
+    />
+    <script type="module" crossorigin src="/assets/index-D_3XNzzH.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-D5HLe7lZ.css">
+  </head>
+  <body>
+    <div id="app"></div>
+  </body>
 </html>

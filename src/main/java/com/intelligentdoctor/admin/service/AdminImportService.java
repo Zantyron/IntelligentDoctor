@@ -98,7 +98,7 @@ public class AdminImportService {
     @Transactional
     public ImportJobView createImportJob(String hospitalId, MultipartFile file) {
         if (file == null || file.isEmpty()) {
-            throw new IllegalArgumentException("上传文件不能为空");
+            throw new IllegalArgumentException("upload file must not be empty");
         }
 
         ImportJobEntity job = new ImportJobEntity();
@@ -106,7 +106,7 @@ public class AdminImportService {
         job.setFileName(Objects.requireNonNullElse(file.getOriginalFilename(), "upload.dat"));
         job.setFileType(detectFileType(job.getFileName()));
         if (!ALLOWED_FILE_TYPES.contains(job.getFileType())) {
-            throw new IllegalArgumentException("不支持的文件类型: " + job.getFileType());
+            throw new IllegalArgumentException("濠电偞鍨堕幐鍝ョ矓閻㈢鏋佹い鏇楀亾妤犵偞鍔栭幏鍛存倻濡吋娈搁梻浣告惈閸婄煤閿濆應鏋庨柕蹇嬪灮鐏忕敻鎮归崶顏勭毢闁? " + job.getFileType());
         }
         job.setStatus("PENDING");
         job.setRetryCount(0);
@@ -120,7 +120,7 @@ public class AdminImportService {
             job = importJobRepository.save(job);
         } catch (IOException ex) {
             job.setStatus("FAILED");
-            job.setErrorMessage("保存上传文件失败：" + ex.getMessage());
+            job.setErrorMessage("婵烇絽娲︾换鍌炴偤閵婏妇鈻斿┑鐘辫兌閻愬﹪鏌￠崒姘煑婵炲棎鍨哄鍕綇椤愩儛? " + ex.getMessage());
             job = importJobRepository.save(job);
         }
 
@@ -144,9 +144,19 @@ public class AdminImportService {
     @Transactional
     public ImportJobView retryImport(String jobId) {
         ImportJobEntity job = importJobRepository.findById(jobId)
-                .orElseThrow(() -> new IllegalArgumentException("导入任务不存在：" + jobId));
+                .orElseThrow(() -> new IllegalArgumentException("import job not found: " + jobId));
+        return retryImport(job.getHospitalId(), jobId);
+    }
+
+    @Transactional
+    public ImportJobView retryImport(String hospitalId, String jobId) {
+        ImportJobEntity job = importJobRepository.findById(jobId)
+                .orElseThrow(() -> new IllegalArgumentException("import job not found: " + jobId));
+        if (!hospitalId.equals(job.getHospitalId())) {
+            throw new IllegalArgumentException("import job does not belong to current hospital");
+        }
         if (!"FAILED".equals(job.getStatus())) {
-            throw new IllegalArgumentException("只有失败任务可以重试");
+            throw new IllegalArgumentException("only failed import jobs can be retried");
         }
         job.setStatus("PENDING");
         job.setRetryCount(job.getRetryCount() == null ? 1 : job.getRetryCount() + 1);
@@ -172,7 +182,7 @@ public class AdminImportService {
         ImportJobEntity job = markProcessing(jobId);
         try {
             if (job.getStoragePath() == null || job.getStoragePath().isBlank()) {
-                throw new IllegalStateException("任务缺少原始文件，无法解析");
+                throw new IllegalStateException("import job is missing source file");
             }
             Path path = Path.of(job.getStoragePath());
             ImportResultSummary summary = switch (job.getFileType()) {
@@ -180,18 +190,18 @@ public class AdminImportService {
                 case "xlsx", "xls" -> importExcel(job.getHospitalId(), job.getFileName(), path);
                 case "pdf" -> importTextualKnowledge(job.getHospitalId(), job.getFileName(), extractPdf(path));
                 case "md", "markdown", "txt" -> importTextualKnowledge(job.getHospitalId(), job.getFileName(), Files.readString(path, StandardCharsets.UTF_8));
-                default -> throw new IllegalArgumentException("暂不支持该文件格式：" + job.getFileType());
+                default -> throw new IllegalArgumentException("unsupported file type: " + job.getFileType());
             };
             markCompleted(jobId, summary);
         } catch (Exception ex) {
-            markFailed(jobId, (retry ? "重试失败：" : "导入失败：") + ex.getMessage());
+            markFailed(jobId, (retry ? "retry failed: " : "import failed: ") + ex.getMessage());
         }
     }
 
     @Transactional
     protected ImportJobEntity markProcessing(String jobId) {
         ImportJobEntity job = importJobRepository.findById(jobId)
-                .orElseThrow(() -> new IllegalArgumentException("导入任务不存在：" + jobId));
+                .orElseThrow(() -> new IllegalArgumentException("import job not found: " + jobId));
         job.setStatus("PROCESSING");
         job.setErrorMessage(null);
         return importJobRepository.save(job);
@@ -200,7 +210,7 @@ public class AdminImportService {
     @Transactional
     protected void markCompleted(String jobId, ImportResultSummary summary) {
         ImportJobEntity job = importJobRepository.findById(jobId)
-                .orElseThrow(() -> new IllegalArgumentException("导入任务不存在：" + jobId));
+                .orElseThrow(() -> new IllegalArgumentException("import job not found: " + jobId));
         job.setStatus("COMPLETED");
         job.setSummaryJson(jsonUtils.toJson(summary));
         job.setErrorMessage(null);
@@ -210,7 +220,7 @@ public class AdminImportService {
     @Transactional
     protected void markFailed(String jobId, String message) {
         ImportJobEntity job = importJobRepository.findById(jobId)
-                .orElseThrow(() -> new IllegalArgumentException("导入任务不存在：" + jobId));
+                .orElseThrow(() -> new IllegalArgumentException("import job not found: " + jobId));
         job.setStatus("FAILED");
         job.setErrorMessage(message);
         importJobRepository.save(job);
@@ -248,7 +258,7 @@ public class AdminImportService {
                         }
                     }
                 } else {
-                    StringBuilder text = new StringBuilder("工作表：").append(sheet.getSheetName()).append('\n');
+                    StringBuilder text = new StringBuilder("sheet: ").append(sheet.getSheetName()).append('\n');
                     for (Row row : sheet) {
                         row.forEach(cell -> text.append(formatter.formatCellValue(cell)).append(" | "));
                         text.append('\n');
@@ -321,12 +331,12 @@ public class AdminImportService {
                     counters.rules++;
                 }
                 case "knowledge" -> {
-                    String title = firstNonBlank(value(row, "name"), value(row, "title"), "知识片段");
+                    String title = firstNonBlank(value(row, "name"), value(row, "title"), "knowledge");
                     String content = firstNonBlank(value(row, "content"), value(row, "description"));
                     knowledgeChunks.addAll(createChunks(hospitalId, sourceName, title, content,
                             Map.of("sourceName", sourceName, "title", title, "type", "knowledge")));
                 }
-                default -> throw new IllegalArgumentException("未知导入类型：" + type);
+                default -> throw new IllegalArgumentException("闂佸搫鐗滄禍鐐烘偂閿涘嫧鍋撻悽闈涘付闁告瑥妫涢悮鍓ф嫚閼碱兘鍋? " + type);
             }
         }
 
@@ -504,7 +514,7 @@ public class AdminImportService {
         String code = firstNonBlank(value(row, codeField), rawId);
         String resolved = ids.get(code);
         if (resolved == null || resolved.isBlank()) {
-            throw new IllegalArgumentException("无法解析关联字段：" + idField + "/" + codeField + "=" + code);
+            throw new IllegalArgumentException("闁哄啰濮电涵鍓佹喆閿濆棛鈧粙宕楃€圭姳绮撻悗娑欘殕椤? " + idField + "/" + codeField + "=" + code);
         }
         return resolved;
     }
@@ -520,7 +530,7 @@ public class AdminImportService {
     private String require(Map<String, String> row, String key) {
         String value = value(row, key);
         if (value.isBlank()) {
-            throw new IllegalArgumentException("缺少必填字段：" + key);
+            throw new IllegalArgumentException("缂傚倸鍊搁幖顐︽儍椤栨繄鐤€闁告侗鍙忕紞鏍倵濞戞瑯娈曟い? " + key);
         }
         return value;
     }
@@ -539,7 +549,7 @@ public class AdminImportService {
     }
 
     private boolean parseBoolean(String value) {
-        return "true".equalsIgnoreCase(value) || "1".equals(value) || "是".equals(value) || "yes".equalsIgnoreCase(value);
+        return "true".equalsIgnoreCase(value) || "1".equals(value) || "yes".equalsIgnoreCase(value);
     }
 
     private int parseInt(String value, int defaultValue) {

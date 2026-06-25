@@ -409,15 +409,27 @@ document.getElementById("cancelAdminLogin").addEventListener("click", () => {
     adminLoginDialog.close();
 });
 
-document.getElementById("adminLoginForm").addEventListener("submit", (event) => {
+document.getElementById("adminLoginForm").addEventListener("submit", async (event) => {
     event.preventDefault();
     const username = document.getElementById("adminUsername").value.trim();
     const password = document.getElementById("adminPassword").value;
-    if (username === "admin" && password === "admin") {
+    try {
+        const response = await fetch(apiUrl("/api/auth/login"), {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username, password })
+        });
+        const payload = await response.json();
+        if (!response.ok || !payload.success || !payload.data?.token) {
+            throw new Error(payload.message || "Login failed");
+        }
         sessionStorage.setItem("ADMIN_AUTHENTICATED", "true");
-        sessionStorage.setItem("ADMIN_AUTH_HEADER", `Basic ${btoa(`${username}:${password}`)}`);
+        sessionStorage.setItem("ADMIN_AUTH_HEADER", `Bearer ${payload.data.token}`);
+        sessionStorage.setItem("ADMIN_HOSPITAL_ID", payload.data.hospitalId || "");
         window.location.href = "/admin.html";
         return;
+    } catch (error) {
+        adminLoginError.textContent = error.message || "Login failed";
     }
     adminLoginError.classList.remove("hidden");
     adminLoginError.style.animation = "none";

@@ -5,6 +5,7 @@ import com.intelligentdoctor.registration.dto.ConfirmRegistrationRequest;
 import com.intelligentdoctor.registration.dto.RegistrationDraftView;
 import com.intelligentdoctor.registration.dto.RegistrationOrderView;
 import com.intelligentdoctor.registration.service.RegistrationService;
+import com.intelligentdoctor.tenant.TenantContext;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -32,11 +33,11 @@ public class RegistrationController {
 
     @GetMapping("/draft/latest")
     public ApiResponse<RegistrationDraftView> latestDraft(@RequestParam String sessionId) {
-        return ApiResponse.success(registrationService.latestDraft(sessionId));
+        return ApiResponse.success(registrationService.latestDraft(TenantContext.requireHospitalId(), sessionId));
     }
 
     @GetMapping("/orders")
-    public ApiResponse<List<RegistrationOrderView>> orders(@RequestParam String hospitalId) {
-        return ApiResponse.success(registrationService.listOrders(hospitalId));
+    public ApiResponse<List<RegistrationOrderView>> orders() {
+        return ApiResponse.success(registrationService.listOrders(TenantContext.requireHospitalId()));
     }
 }

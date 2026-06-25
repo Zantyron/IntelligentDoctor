@@ -73,6 +73,7 @@
 | `src/main/java/com/intelligentdoctor/registration` | 挂号草稿、实名信息、号源预占、订单生成和事件处理。 |
 | `src/main/java/com/intelligentdoctor/catalog` | 医院主数据，包括科室、诊室、医生、排班和规则。 |
 | `src/main/java/com/intelligentdoctor/system` | 系统状态探活、运行 profile 和启动地址输出。 |
+| `frontend` | 患者端 Vue 3 源码（Vite + Tailwind），构建产物输出到 `static/`。 |
 | `src/main/resources/static` | 患者端和管理后台静态页面。 |
 | `docker` | MySQL、MongoDB、Redis、Kafka 本地依赖配置。 |
 | `sample-data` | 演示医院、医生、排班和病症知识库样例。 |

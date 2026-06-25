@@ -14,8 +14,11 @@ import com.intelligentdoctor.chat.history.repository.PromptTraceMongoRepository;
 import com.intelligentdoctor.chat.history.repository.ToolTraceMongoRepository;
 import com.intelligentdoctor.chat.model.ChatMode;
 import com.intelligentdoctor.common.JsonUtils;
+import com.intelligentdoctor.config.AppProperties;
+import com.intelligentdoctor.tenant.TenantContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,23 +38,35 @@ public class ChatHistoryService {
     private final PromptTraceMongoRepository promptTraceRepository;
     private final ToolTraceMongoRepository toolTraceRepository;
     private final JsonUtils jsonUtils;
+    private final AppProperties properties;
 
+    @Autowired
     public ChatHistoryService(ChatSessionMongoRepository sessionRepository,
                               ChatMessageMongoRepository messageRepository,
                               PromptTraceMongoRepository promptTraceRepository,
                               ToolTraceMongoRepository toolTraceRepository,
-                              JsonUtils jsonUtils) {
+                              JsonUtils jsonUtils,
+                              AppProperties properties) {
         this.sessionRepository = sessionRepository;
         this.messageRepository = messageRepository;
         this.promptTraceRepository = promptTraceRepository;
         this.toolTraceRepository = toolTraceRepository;
         this.jsonUtils = jsonUtils;
+        this.properties = properties;
+    }
+
+    ChatHistoryService(ChatSessionMongoRepository sessionRepository,
+                       ChatMessageMongoRepository messageRepository,
+                       PromptTraceMongoRepository promptTraceRepository,
+                       ToolTraceMongoRepository toolTraceRepository,
+                       JsonUtils jsonUtils) {
+        this(sessionRepository, messageRepository, promptTraceRepository, toolTraceRepository, jsonUtils, new AppProperties());
     }
 
     public List<ChatMessageInput> mergeWithStoredHistory(String sessionId, List<ChatMessageInput> incomingMessages) {
         List<ChatMessageInput> merged = new ArrayList<>();
         try {
-            merged.addAll(messageRepository.findBySessionIdOrderByCreatedAtAsc(sessionId).stream()
+            merged.addAll(messageRepository.findByHospitalIdAndSessionIdOrderByCreatedAtAsc(currentHospitalId(), sessionId).stream()
                     .map(message -> new ChatMessageInput(message.getRole(), message.getContent()))
                     .toList());
         } catch (Exception ex) {
@@ -68,7 +83,7 @@ public class ChatHistoryService {
                             session.getSessionId(),
                             session.getHospitalId(),
                             session.getMode(),
-                            sessionTitle(session.getSessionId()),
+                            sessionTitle(hospitalId, session.getSessionId()),
                             session.getCreatedAt(),
                             session.getUpdatedAt()
                     ))
@@ -79,9 +94,9 @@ public class ChatHistoryService {
         }
     }
 
-    public List<ChatMessageView> listMessages(String sessionId) {
+    public List<ChatMessageView> listMessages(String hospitalId, String sessionId) {
         try {
-            return messageRepository.findBySessionIdOrderByCreatedAtAsc(sessionId).stream()
+            return messageRepository.findByHospitalIdAndSessionIdOrderByCreatedAtAsc(hospitalId, sessionId).stream()
                     .map(this::toView)
                     .toList();
         } catch (Exception ex) {
@@ -96,11 +111,11 @@ public class ChatHistoryService {
     }
 
     @Transactional
-    public void deleteSession(String sessionId) {
-        messageRepository.deleteBySessionId(sessionId);
-        promptTraceRepository.deleteBySessionId(sessionId);
-        toolTraceRepository.deleteBySessionId(sessionId);
-        sessionRepository.deleteBySessionId(sessionId);
+    public void deleteSession(String hospitalId, String sessionId) {
+        messageRepository.deleteByHospitalIdAndSessionId(hospitalId, sessionId);
+        promptTraceRepository.deleteByHospitalIdAndSessionId(hospitalId, sessionId);
+        toolTraceRepository.deleteByHospitalIdAndSessionId(hospitalId, sessionId);
+        sessionRepository.deleteByHospitalIdAndSessionId(hospitalId, sessionId);
     }
 
     @Transactional
@@ -111,10 +126,10 @@ public class ChatHistoryService {
         if (sessionIds.isEmpty()) {
             return;
         }
-        messageRepository.deleteBySessionIdIn(sessionIds);
-        promptTraceRepository.deleteBySessionIdIn(sessionIds);
-        toolTraceRepository.deleteBySessionIdIn(sessionIds);
-        sessionRepository.deleteBySessionIdIn(sessionIds);
+        messageRepository.deleteByHospitalIdAndSessionIdIn(hospitalId, sessionIds);
+        promptTraceRepository.deleteByHospitalIdAndSessionIdIn(hospitalId, sessionIds);
+        toolTraceRepository.deleteByHospitalIdAndSessionIdIn(hospitalId, sessionIds);
+        sessionRepository.deleteByHospitalIdAndSessionIdIn(hospitalId, sessionIds);
     }
 
     public void storeChat(String sessionId,
@@ -128,7 +143,7 @@ public class ChatHistoryService {
             return;
         }
         try {
-            ChatSessionDocument session = sessionRepository.findBySessionId(sessionId)
+            ChatSessionDocument session = sessionRepository.findByHospitalIdAndSessionId(hospitalId, sessionId)
                     .orElseGet(ChatSessionDocument::new);
             LocalDateTime now = LocalDateTime.now();
             if (session.getCreatedAt() == null) {
@@ -144,6 +159,7 @@ public class ChatHistoryService {
             List<ChatMessageDocument> messageDocuments = new ArrayList<>();
             for (ChatMessageInput input : messages) {
                 ChatMessageDocument messageDocument = new ChatMessageDocument();
+                messageDocument.setHospitalId(hospitalId);
                 messageDocument.setSessionId(sessionId);
                 messageDocument.setRole(input.role());
                 messageDocument.setContent(input.content());
@@ -152,6 +168,7 @@ public class ChatHistoryService {
             }
 
             ChatMessageDocument assistantMessage = new ChatMessageDocument();
+            assistantMessage.setHospitalId(hospitalId);
             assistantMessage.setSessionId(sessionId);
             assistantMessage.setRole("assistant");
             assistantMessage.setContent(assistantReply);
@@ -159,16 +176,19 @@ public class ChatHistoryService {
             messageDocuments.add(assistantMessage);
             messageRepository.saveAll(messageDocuments);
 
-            PromptTraceDocument promptTrace = new PromptTraceDocument();
-            promptTrace.setSessionId(sessionId);
-            promptTrace.setMode(mode.name());
-            promptTrace.setPromptContent(String.join("\n\n",
-                    promptContext.systemPrompt(),
-                    promptContext.businessPrompt(),
-                    promptContext.ragPrompt(),
-                    promptContext.toolPrompt()));
-            promptTrace.setCreatedAt(now);
-            promptTraceRepository.save(promptTrace);
+            if (promptContext != null) {
+                PromptTraceDocument promptTrace = new PromptTraceDocument();
+                promptTrace.setHospitalId(hospitalId);
+                promptTrace.setSessionId(sessionId);
+                promptTrace.setMode(mode.name());
+                promptTrace.setPromptContent(String.join("\n\n",
+                        promptContext.systemPrompt(),
+                        promptContext.businessPrompt(),
+                        promptContext.ragPrompt(),
+                        promptContext.toolPrompt()));
+                promptTrace.setCreatedAt(now);
+                promptTraceRepository.save(promptTrace);
+            }
         } catch (Exception ex) {
             log.warn("Failed to store chat history, fallback to logs only: {}", ex.getMessage());
         }
@@ -177,6 +197,7 @@ public class ChatHistoryService {
     public void storeToolTrace(String sessionId, String toolName, Map<String, Object> arguments, Object result) {
         try {
             ToolTraceDocument toolTrace = new ToolTraceDocument();
+            toolTrace.setHospitalId(currentHospitalId());
             toolTrace.setSessionId(sessionId);
             toolTrace.setToolName(toolName);
             toolTrace.setArgumentsJson(jsonUtils.toJson(arguments));
@@ -194,8 +215,8 @@ public class ChatHistoryService {
                 .toList();
     }
 
-    private String sessionTitle(String sessionId) {
-        return messageRepository.findBySessionIdOrderByCreatedAtAsc(sessionId).stream()
+    private String sessionTitle(String hospitalId, String sessionId) {
+        return messageRepository.findByHospitalIdAndSessionIdOrderByCreatedAtAsc(hospitalId, sessionId).stream()
                 .filter(message -> "user".equalsIgnoreCase(message.getRole()))
                 .min(Comparator.comparing(ChatMessageDocument::getCreatedAt))
                 .map(ChatMessageDocument::getContent)
@@ -211,5 +232,10 @@ public class ChatHistoryService {
                 message.getContent(),
                 message.getCreatedAt()
         );
+    }
+
+    private String currentHospitalId() {
+        String hospitalId = TenantContext.getHospitalId();
+        return hospitalId == null || hospitalId.isBlank() ? properties.getDefaultHospitalId() : hospitalId;
     }
 }

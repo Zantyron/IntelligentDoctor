@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.intelligentdoctor.admin.security.AdminAuthInterceptor;
 import com.intelligentdoctor.chat.security.ChatRateLimitInterceptor;
+import com.intelligentdoctor.tenant.TenantContextInterceptor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.annotation.EnableAsync;
@@ -21,18 +22,23 @@ public class AppConfig implements WebMvcConfigurer {
 
     private final AdminAuthInterceptor adminAuthInterceptor;
     private final ChatRateLimitInterceptor chatRateLimitInterceptor;
+    private final TenantContextInterceptor tenantContextInterceptor;
     private final AppProperties properties;
 
     public AppConfig(AdminAuthInterceptor adminAuthInterceptor,
                      ChatRateLimitInterceptor chatRateLimitInterceptor,
+                     TenantContextInterceptor tenantContextInterceptor,
                      AppProperties properties) {
         this.adminAuthInterceptor = adminAuthInterceptor;
         this.chatRateLimitInterceptor = chatRateLimitInterceptor;
+        this.tenantContextInterceptor = tenantContextInterceptor;
         this.properties = properties;
     }
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
+        registry.addInterceptor(tenantContextInterceptor)
+                .addPathPatterns("/api/**");
         registry.addInterceptor(adminAuthInterceptor)
                 .addPathPatterns("/api/admin/**");
         registry.addInterceptor(chatRateLimitInterceptor)

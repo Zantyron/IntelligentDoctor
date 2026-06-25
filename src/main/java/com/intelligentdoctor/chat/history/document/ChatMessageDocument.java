@@ -10,6 +10,7 @@ public class ChatMessageDocument {
 
     @Id
     private String id;
+    private String hospitalId;
     private String sessionId;
     private String role;
     private String content;
@@ -21,6 +22,14 @@ public class ChatMessageDocument {
 
     public void setId(String id) {
         this.id = id;
+    }
+
+    public String getHospitalId() {
+        return hospitalId;
+    }
+
+    public void setHospitalId(String hospitalId) {
+        this.hospitalId = hospitalId;
     }
 
     public String getSessionId() {
