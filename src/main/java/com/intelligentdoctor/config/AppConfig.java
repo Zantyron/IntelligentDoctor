@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.intelligentdoctor.admin.security.AdminAuthInterceptor;
+import com.intelligentdoctor.auth.TerminalAuthInterceptor;
 import com.intelligentdoctor.chat.security.ChatRateLimitInterceptor;
 import com.intelligentdoctor.tenant.TenantContextInterceptor;
 import org.springframework.context.annotation.Bean;
@@ -21,15 +22,18 @@ import java.util.concurrent.Executor;
 public class AppConfig implements WebMvcConfigurer {
 
     private final AdminAuthInterceptor adminAuthInterceptor;
+    private final TerminalAuthInterceptor terminalAuthInterceptor;
     private final ChatRateLimitInterceptor chatRateLimitInterceptor;
     private final TenantContextInterceptor tenantContextInterceptor;
     private final AppProperties properties;
 
     public AppConfig(AdminAuthInterceptor adminAuthInterceptor,
+                     TerminalAuthInterceptor terminalAuthInterceptor,
                      ChatRateLimitInterceptor chatRateLimitInterceptor,
                      TenantContextInterceptor tenantContextInterceptor,
                      AppProperties properties) {
         this.adminAuthInterceptor = adminAuthInterceptor;
+        this.terminalAuthInterceptor = terminalAuthInterceptor;
         this.chatRateLimitInterceptor = chatRateLimitInterceptor;
         this.tenantContextInterceptor = tenantContextInterceptor;
         this.properties = properties;
@@ -41,6 +45,8 @@ public class AppConfig implements WebMvcConfigurer {
                 .addPathPatterns("/api/**");
         registry.addInterceptor(adminAuthInterceptor)
                 .addPathPatterns("/api/admin/**");
+        registry.addInterceptor(terminalAuthInterceptor)
+                .addPathPatterns("/api/chat/**", "/api/registration/**");
         registry.addInterceptor(chatRateLimitInterceptor)
                 .addPathPatterns("/api/chat/diagnosis/stream", "/api/chat/registration/stream");
     }

@@ -58,6 +58,7 @@ import java.util.UUID;
 public class AdminImportService {
 
     private static final Set<String> ALLOWED_FILE_TYPES = Set.of("csv", "xlsx", "xls", "pdf", "md", "markdown", "txt");
+    private static final Path IMPORT_ROOT = Path.of("data", "imports").toAbsolutePath().normalize();
 
     private final ImportJobRepository importJobRepository;
     private final HospitalRepository hospitalRepository;
@@ -103,11 +104,12 @@ public class AdminImportService {
 
         ImportJobEntity job = new ImportJobEntity();
         job.setHospitalId(hospitalId);
-        job.setFileName(Objects.requireNonNullElse(file.getOriginalFilename(), "upload.dat"));
+        job.setFileName(safeOriginalFileName(file.getOriginalFilename()));
         job.setFileType(detectFileType(job.getFileName()));
         if (!ALLOWED_FILE_TYPES.contains(job.getFileType())) {
-            throw new IllegalArgumentException("濠电偞鍨堕幐鍝ョ矓閻㈢鏋佹い鏇楀亾妤犵偞鍔栭幏鍛存倻濡吋娈搁梻浣告惈閸婄煤閿濆應鏋庨柕蹇嬪灮鐏忕敻鎮归崶顏勭毢闁? " + job.getFileType());
+            throw new IllegalArgumentException("unsupported upload file type: " + job.getFileType());
         }
+        validateUploadSignature(file, job.getFileType());
         job.setStatus("PENDING");
         job.setRetryCount(0);
         job = importJobRepository.save(job);
@@ -120,7 +122,7 @@ public class AdminImportService {
             job = importJobRepository.save(job);
         } catch (IOException ex) {
             job.setStatus("FAILED");
-            job.setErrorMessage("婵烇絽娲︾换鍌炴偤閵婏妇鈻斿┑鐘辫兌閻愬﹪鏌￠崒姘煑婵炲棎鍨哄鍕綇椤愩儛? " + ex.getMessage());
+            job.setErrorMessage("failed to store uploaded file: " + ex.getMessage());
             job = importJobRepository.save(job);
         }
 
@@ -569,7 +571,49 @@ public class AdminImportService {
 
     private Path storagePath(ImportJobEntity job) {
         String fileName = job.getFileName().replaceAll("[^a-zA-Z0-9._-]", "_");
-        return Path.of("data", "imports", job.getId(), fileName);
+        Path path = IMPORT_ROOT.resolve(job.getId()).resolve(fileName).normalize();
+        if (!path.startsWith(IMPORT_ROOT)) {
+            throw new IllegalArgumentException("invalid upload storage path");
+        }
+        return path;
+    }
+
+    private String safeOriginalFileName(String originalFileName) {
+        String fileName = Path.of(Objects.requireNonNullElse(originalFileName, "upload.dat")).getFileName().toString();
+        fileName = fileName.replaceAll("[\\r\\n]", "").trim();
+        if (fileName.isBlank() || ".".equals(fileName) || "..".equals(fileName)) {
+            return "upload.dat";
+        }
+        return truncate(fileName, 128);
+    }
+
+    private void validateUploadSignature(MultipartFile file, String fileType) {
+        try {
+            byte[] header = file.getInputStream().readNBytes(8);
+            boolean valid = switch (fileType) {
+                case "pdf" -> startsWith(header, "%PDF-".getBytes(StandardCharsets.US_ASCII));
+                case "xlsx" -> startsWith(header, new byte[]{0x50, 0x4B, 0x03, 0x04});
+                case "xls" -> startsWith(header, new byte[]{(byte) 0xD0, (byte) 0xCF, 0x11, (byte) 0xE0});
+                default -> true;
+            };
+            if (!valid) {
+                throw new IllegalArgumentException("upload file content does not match ." + fileType);
+            }
+        } catch (IOException ex) {
+            throw new IllegalArgumentException("failed to read uploaded file header", ex);
+        }
+    }
+
+    private boolean startsWith(byte[] value, byte[] prefix) {
+        if (value.length < prefix.length) {
+            return false;
+        }
+        for (int i = 0; i < prefix.length; i++) {
+            if (value[i] != prefix[i]) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private String safeKey(String raw) {

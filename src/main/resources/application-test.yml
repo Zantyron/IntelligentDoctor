@@ -26,6 +26,9 @@ management:
       enabled: false
 
 app:
+  admin:
+    password: test-admin-password
+    token-secret: test-admin-token-secret-32-chars-min
   history:
     provider: memory
   ai:

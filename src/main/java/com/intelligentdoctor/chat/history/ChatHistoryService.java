@@ -15,6 +15,8 @@ import com.intelligentdoctor.chat.history.repository.ToolTraceMongoRepository;
 import com.intelligentdoctor.chat.model.ChatMode;
 import com.intelligentdoctor.common.JsonUtils;
 import com.intelligentdoctor.config.AppProperties;
+import com.intelligentdoctor.auth.AdminPrincipal;
+import com.intelligentdoctor.auth.TerminalSecurityContext;
 import com.intelligentdoctor.tenant.TenantContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -82,6 +84,7 @@ public class ChatHistoryService {
                     .map(session -> new ChatSessionView(
                             session.getSessionId(),
                             session.getHospitalId(),
+                            session.getTerminalUsername(),
                             session.getMode(),
                             sessionTitle(hospitalId, session.getSessionId()),
                             session.getCreatedAt(),
@@ -106,8 +109,8 @@ public class ChatHistoryService {
     }
 
     @Transactional
-    public void deleteMessage(String messageId) {
-        messageRepository.deleteById(messageId);
+    public void deleteMessage(String hospitalId, String messageId) {
+        messageRepository.deleteByHospitalIdAndId(hospitalId, messageId);
     }
 
     @Transactional
@@ -151,6 +154,10 @@ public class ChatHistoryService {
             }
             session.setSessionId(sessionId);
             session.setHospitalId(hospitalId);
+            AdminPrincipal terminal = TerminalSecurityContext.get();
+            if (terminal != null) {
+                session.setTerminalUsername(terminal.username());
+            }
             session.setMode(mode.name());
             session.setConsentToStoreHistory(consent);
             session.setUpdatedAt(now);

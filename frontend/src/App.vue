@@ -7,7 +7,8 @@ import ChatInput from "@/components/chat/ChatInput.vue"
 import RecommendationDrawer from "@/components/recommendation/RecommendationDrawer.vue"
 import ToastContainer from "@/components/ui/ToastContainer.vue"
 import ConfirmDialog from "@/components/ui/ConfirmDialog.vue"
-import { createSessionId, fetchJson } from "@/lib/api"
+import AdminLoginDialog from "@/components/admin/AdminLoginDialog.vue"
+import { apiUrl, createSessionId, fetchJson, terminalAuthHeader } from "@/lib/api"
 import { streamChat } from "@/lib/sse"
 import type {
   ChatMessage,
@@ -17,9 +18,9 @@ import type {
   RegistrationOrder,
 } from "@/types"
 
-// ========= 鍏变韩缁堢妯″紡 =========
-// 鍖婚櫌鍏辩敤璁惧锛氫笉鎸佷箙鍖?sessionId锛屾瘡娆″姞杞介兘鍏ㄦ柊寮€濮?
-// 瓒呰繃绌洪棽鏃堕棿鑷姩閲嶇疆锛屼繚鎶ゆ偅鑰呴殣绉?
+// ========= 共享终端模式 =========
+// 医院共用设备：不持久化 sessionId，每次加载都全新开始
+// 超过空闲时间自动重置，保护患者隐私
 const IDLE_TIMEOUT_MS = 60 * 1000 // 1 minute of inactivity locks the shared terminal.
 
 // ========= Toast =========
@@ -28,7 +29,16 @@ function toast(msg: string, type: "success" | "error" | "info" = "info") {
   toastRef.value?.show(msg, type)
 }
 
-// ========= 绌洪棽璁℃椂鍣?=========
+// ========= 导诊终端登录 =========
+const terminalUsername = ref(sessionStorage.getItem("TERMINAL_USERNAME") || "")
+const terminalToken = ref(sessionStorage.getItem("TERMINAL_TOKEN") || "")
+const terminalLoginUsername = ref("")
+const terminalLoginPassword = ref("")
+const terminalLoginLoading = ref(false)
+const terminalLoginError = ref("")
+const terminalAuthenticated = computed(() => !!terminalToken.value)
+
+// ========= 空闲计时器 =========
 let idleTimer: ReturnType<typeof setTimeout> | null = null
 let idleLocked = ref(false)
 
@@ -54,8 +64,10 @@ const sessionsLoading = ref(false)
 const sidebarCollapsed = ref(false)
 
 onMounted(() => {
-  loadSessions()
-  // 鐩戝惉鐢ㄦ埛娲诲姩浠ラ噸缃┖闂茶鏃?
+  if (terminalAuthenticated.value) {
+    loadSessions()
+  }
+  // 监听用户活动以重置空闲计时器
   document.addEventListener("click", onUserActivity)
   document.addEventListener("keydown", onUserActivity)
   document.addEventListener("touchstart", onUserActivity)
@@ -70,6 +82,7 @@ onBeforeUnmount(() => {
 })
 
 async function loadSessions() {
+  if (!terminalAuthenticated.value) return
   sessionsLoading.value = true
   try {
     sessions.value = await fetchJson<ChatSession[]>("/api/chat/sessions").catch(() => [])
@@ -93,6 +106,8 @@ const confirming = ref(false)
 
 const confirmDialog = ref<{ title: string; message: string; action: () => void } | null>(null)
 
+const showAdminLogin = ref(false)
+
 const hasRecommendationData = computed(() => {
   const m = resultMetadata.value
   if (!m) return false
@@ -103,7 +118,7 @@ const hasRecommendationData = computed(() => {
   )
 })
 
-// 鍙充晶闈㈡澘鏄惁鎵撳紑
+// 右侧面板是否打开
 const rightPanelOpen = computed(() =>
   showRecommendation.value || !!currentDraft.value || !!currentOrder.value
 )
@@ -126,6 +141,7 @@ function fullReset() {
 
 async function loadMessages(id: string) {
   fullReset()
+  sessionId.value = id
   try {
     const data = await fetchJson<
       Array<{ id: string; role: ChatMessage["role"]; content: string }>
@@ -136,6 +152,55 @@ async function loadMessages(id: string) {
   } catch {
     /* keep empty */
   }
+}
+
+async function loginTerminal() {
+  terminalLoginError.value = ""
+  if (!terminalLoginUsername.value.trim() || !terminalLoginPassword.value) {
+    terminalLoginError.value = "请输入导诊终端账号和密码"
+    return
+  }
+  terminalLoginLoading.value = true
+  try {
+    const response = await fetch(apiUrl("/api/auth/terminal/login"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        username: terminalLoginUsername.value.trim(),
+        password: terminalLoginPassword.value,
+      }),
+    })
+    const payload = await response.json()
+    if (!response.ok || !payload.success) {
+      throw new Error(payload.message || "登录失败")
+    }
+    sessionStorage.setItem("TERMINAL_TOKEN", payload.data.token)
+    sessionStorage.setItem("TERMINAL_USERNAME", payload.data.username)
+    terminalToken.value = payload.data.token
+    terminalUsername.value = payload.data.username
+    terminalLoginUsername.value = ""
+    terminalLoginPassword.value = ""
+    fullReset()
+    await loadSessions()
+    toast("导诊终端已登录", "success")
+  } catch (e) {
+    terminalLoginError.value = e instanceof Error ? e.message : "登录失败，请稍后再试"
+  } finally {
+    terminalLoginLoading.value = false
+  }
+}
+
+function logoutTerminal() {
+  sessionStorage.removeItem("TERMINAL_TOKEN")
+  sessionStorage.removeItem("TERMINAL_USERNAME")
+  terminalToken.value = ""
+  terminalUsername.value = ""
+  fullReset()
+  sessions.value = []
+}
+
+function toggleSidebar() {
+  sidebarCollapsed.value = !sidebarCollapsed.value
 }
 
 function newSession() {
@@ -149,25 +214,13 @@ function newSession() {
   idleLocked.value = false
   resetIdleTimer()
   loadSessions()
-  toast("宸插紑濮嬫柊瀵硅瘽", "info")
-}
-
-async function openSession(id: string) {
-  if (idleLocked.value) {
-    // 绌洪棽閿佸畾鏃讹紝鐐瑰巻鍙插璇濈浉褰撲簬"鎭㈠"
-    idleLocked.value = false
-    resetIdleTimer()
-  }
-  sessionId.value = id
-  await loadMessages(id)
-  loadSessions()
-  resetIdleTimer()
+  toast("已开始新对话", "info")
 }
 
 function endVisit() {
   confirmDialog.value = {
     title: "确定要结束本次问诊吗？",
-    message: "结束问诊只会清空当前屏幕，不会删除已保存的历史记录。如需保护隐私，请使用“删除记录”。",
+    message: "结束后会进入新的聊天页面。历史记录仅在患者端匿名展示，具体内容需管理员登录后查看和删除。",
     action: async () => {
       fullReset()
       await loadSessions()
@@ -176,46 +229,15 @@ function endVisit() {
   }
 }
 
-function deleteCurrentSession() {
-  confirmDialog.value = {
-    title: "删除本次聊天记录？",
-    message: "删除后，当前问诊内容会从历史对话中移除，下一位患者无法再从左侧历史恢复查看。",
-    action: async () => {
-      try {
-        await fetchJson(`/api/chat/sessions?sessionId=${encodeURIComponent(sessionId.value)}`, {
-          method: "DELETE",
-        })
-        fullReset()
-        await loadSessions()
-        toast("本次聊天记录已删除", "success")
-      } catch {
-        toast("删除失败，请稍后再试", "error")
-      }
-    },
-  }
+function openAdmin() {
+  showAdminLogin.value = true
 }
 
-function deleteSession(id: string) {
-  confirmDialog.value = {
-    title: "删除这条对话？",
-    message: "删除后找不回来了，确定要删吗？",
-    action: async () => {
-      try {
-        await fetchJson(`/api/chat/sessions?sessionId=${encodeURIComponent(id)}`, {
-          method: "DELETE",
-        })
-        if (id === sessionId.value) newSession()
-        await loadSessions()
-        resetIdleTimer()
-        toast("已删除", "success")
-      } catch {
-        toast("删除失败，请稍后再试", "error")
-      }
-    },
-  }
+function onAdminLoginSuccess(username: string) {
+  toast(`欢迎，${username}`, "success")
 }
 
-// ========= AI 鍥炲 =========
+// ========= AI 回复 =========
 function applyResult(metadata: ChatResultMetadata) {
   resultMetadata.value = metadata
   showRecommendation.value = false
@@ -308,9 +330,12 @@ async function confirmRegistration(form: {
 
   confirming.value = true
   try {
-    const response = await fetch(`/api/registration/confirm`, {
+    const response = await fetch(apiUrl("/api/registration/confirm"), {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(terminalAuthHeader() ? { Authorization: terminalAuthHeader() as string } : {}),
+      },
       body: JSON.stringify({
         draftId: currentDraft.value.draftId,
         sessionId: sessionId.value,
@@ -348,7 +373,7 @@ function onConfirmDialog() {
   resetIdleTimer()
 }
 
-// ========= 绌洪棽閿佸畾瑕嗙洊 =========
+// ========= 空闲锁定覆盖 =========
 function dismissIdleLock() {
   idleLocked.value = false
   resetIdleTimer()
@@ -357,29 +382,77 @@ function dismissIdleLock() {
 
 <template>
   <div class="flex h-dvh flex-col bg-surface-muted">
-    <!-- 鏋佺畝澶撮儴 -->
+    <div v-if="!terminalAuthenticated" class="flex min-h-dvh items-center justify-center bg-surface-muted px-4">
+      <div class="w-full max-w-md rounded-2xl border border-gray-100 bg-white p-7 shadow-xl">
+        <div class="mb-6 text-center">
+          <div class="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-brand-500 text-xl font-bold text-white">
+            医
+          </div>
+          <h1 class="text-2xl font-bold text-gray-900">导诊终端登录</h1>
+          <p class="mt-2 text-sm text-gray-500">请输入医院后台创建的终端账号后使用智能导诊。</p>
+        </div>
+
+        <form class="space-y-4" @submit.prevent="loginTerminal">
+          <label class="block">
+            <span class="text-sm font-semibold text-gray-700">终端账号</span>
+            <input
+              v-model="terminalLoginUsername"
+              class="input-field mt-1.5"
+              autocomplete="username"
+              placeholder="例如 machine-01 / frontdesk-02"
+              :disabled="terminalLoginLoading"
+            />
+          </label>
+          <label class="block">
+            <span class="text-sm font-semibold text-gray-700">密码</span>
+            <input
+              v-model="terminalLoginPassword"
+              type="password"
+              class="input-field mt-1.5"
+              autocomplete="current-password"
+              placeholder="请输入密码"
+              :disabled="terminalLoginLoading"
+            />
+          </label>
+          <p v-if="terminalLoginError" class="rounded-lg bg-red-50 px-3 py-2 text-sm font-semibold text-red-600">
+            {{ terminalLoginError }}
+          </p>
+          <button type="submit" class="btn-primary w-full" :disabled="terminalLoginLoading">
+            {{ terminalLoginLoading ? "登录中..." : "进入智能导诊" }}
+          </button>
+        </form>
+
+        <button type="button" class="btn-ghost mt-4 w-full text-sm" @click="openAdmin">
+          管理员登录后台
+        </button>
+      </div>
+    </div>
+
+    <template v-else>
+    <!-- 极简头部 -->
     <AppHeader
       :sidebar-collapsed="sidebarCollapsed"
-      @toggle-sidebar="sidebarCollapsed = !sidebarCollapsed"
+      :terminal-username="terminalUsername"
+      @toggle-sidebar="toggleSidebar"
       @end-visit="endVisit"
-      @delete-current="deleteCurrentSession"
+      @open-admin-login="openAdmin"
+      @logout-terminal="logoutTerminal"
     />
 
-    <!-- 涓讳綋涓夋爮甯冨眬 -->
+    <!-- 主体三栏布局 -->
     <div class="flex min-h-0 flex-1">
-      <!-- 宸︿晶锛氫細璇濆垪琛紙濮嬬粓鍙锛?-->
+      <!-- 左侧：会话列表（始终可见）-->
       <ConversationSidebar
         :sessions="sessions"
         :active-session-id="sessionId"
         :loading="sessionsLoading"
         :collapsed="sidebarCollapsed"
-        @select="openSession"
-        @delete="deleteSession"
         @new-session="newSession"
         @end-visit="endVisit"
+        @select-session="loadMessages"
       />
 
-      <!-- 涓棿锛氳亰澶╁尯 -->
+      <!-- 中间：聊天区 -->
       <main class="relative flex min-h-0 min-w-0 flex-1 flex-col">
         <ChatLog
           :messages="messages"
@@ -387,7 +460,7 @@ function dismissIdleLock() {
           @select-prompt="selectPrompt"
         />
 
-        <!-- 搴曢儴杈撳叆鍖猴紙绌洪棽閿佸畾鏃堕殣钘忥級 -->
+        <!-- 底部输入区（空闲锁定时隐藏） -->
         <ChatInput
           v-if="!idleLocked"
           v-model="input"
@@ -405,10 +478,10 @@ function dismissIdleLock() {
           <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6.75 6.75 0 006.75-6.75 6.75 6.75 0 00-13.5 0A6.75 6.75 0 0012 18.75zm0 0v2.25m-3 0h6" />
           </svg>
-          鏌ョ湅鏅鸿兘鎺ㄨ崘
+          查看智能推荐
         </button>
 
-        <!-- 绌洪棽閿佸畾鎻愮ず -->
+        <!-- 空闲锁定提示 -->
         <div
           v-if="idleLocked && messages.length > 0"
           class="shrink-0 bg-gradient-to-t from-white/98 to-transparent px-4 pb-6 pt-6"
@@ -430,7 +503,7 @@ function dismissIdleLock() {
         </div>
       </main>
 
-      <!-- 鍙充晶锛氭帹鑽愰潰鏉匡紙榛樿闅愯棌锛屾湁鍐呭鎵嶅睍绀猴級 -->
+      <!-- 右侧：推荐面板（默认隐藏，有内容才展示） -->
       <Transition name="slide-right">
         <aside
           v-if="rightPanelOpen"
@@ -438,7 +511,7 @@ function dismissIdleLock() {
         >
           <div class="scrollbar-custom h-full overflow-y-auto">
             <div class="p-4 space-y-4">
-              <!-- 鏌ョ湅寤鸿鎸夐挳 / 鍐呭 -->
+              <!-- 查看建议按钮 / 内容 -->
               <RecommendationDrawer
                 v-if="hasRecommendationData || currentDraft || currentOrder"
                 :show="showRecommendation"
@@ -454,6 +527,7 @@ function dismissIdleLock() {
         </aside>
       </Transition>
     </div>
+    </template>
 
     <ToastContainer ref="toastRef" />
 
@@ -461,9 +535,15 @@ function dismissIdleLock() {
       v-if="confirmDialog"
       :title="confirmDialog.title"
       :message="confirmDialog.message"
-      confirm-label="纭畾鍒犻櫎"
+      confirm-label="确定结束"
       @confirm="onConfirmDialog"
       @cancel="confirmDialog = null"
+    />
+
+    <AdminLoginDialog
+      :visible="showAdminLogin"
+      @close="showAdminLogin = false"
+      @success="onAdminLoginSuccess"
     />
   </div>
 </template>
@@ -481,6 +561,3 @@ function dismissIdleLock() {
   opacity: 0;
 }
 </style>
-
-
-

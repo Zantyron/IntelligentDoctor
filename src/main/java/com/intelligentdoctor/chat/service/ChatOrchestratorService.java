@@ -15,6 +15,8 @@ import com.intelligentdoctor.config.AppProperties;
 import com.intelligentdoctor.registration.dto.CreateDraftCommand;
 import com.intelligentdoctor.registration.dto.RegistrationDraftView;
 import com.intelligentdoctor.tenant.TenantContext;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -36,6 +38,7 @@ import java.util.concurrent.RejectedExecutionException;
 @Service
 public class ChatOrchestratorService {
 
+    private static final Logger log = LoggerFactory.getLogger(ChatOrchestratorService.class);
     private static final ZoneId HOSPITAL_ZONE = ZoneId.of("Asia/Shanghai");
 
     private final AppProperties properties;
@@ -127,6 +130,7 @@ public class ChatOrchestratorService {
                             request.messages(), enriched.reply(), null);
                     emitter.complete();
                 } catch (Exception ex) {
+                    log.warn("Failed to stream chat response for session {}: {}", request.sessionId(), ex.getMessage(), ex);
                     try {
                         emitPayload(emitter, "error", failureMessage(ex), Map.of());
                     } catch (IOException ignored) {
@@ -402,6 +406,6 @@ public class ChatOrchestratorService {
 
 
     private String failureMessage(Exception ex) {
-        return "AI service unavailable: " + ex.getMessage();
+        return "AI service is temporarily unavailable, please retry later";
     }
 }

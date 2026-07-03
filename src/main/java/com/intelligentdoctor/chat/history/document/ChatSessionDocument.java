@@ -12,6 +12,7 @@ public class ChatSessionDocument {
     private String id;
     private String sessionId;
     private String hospitalId;
+    private String terminalUsername;
     private String mode;
     private boolean consentToStoreHistory;
     private LocalDateTime createdAt;
@@ -39,6 +40,14 @@ public class ChatSessionDocument {
 
     public void setHospitalId(String hospitalId) {
         this.hospitalId = hospitalId;
+    }
+
+    public String getTerminalUsername() {
+        return terminalUsername;
+    }
+
+    public void setTerminalUsername(String terminalUsername) {
+        this.terminalUsername = terminalUsername;
     }
 
     public String getMode() {

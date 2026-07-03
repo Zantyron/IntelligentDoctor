@@ -60,10 +60,6 @@ public class ChatRateLimitInterceptor implements HandlerInterceptor {
         if (sessionId != null && !sessionId.isBlank()) {
             return "session:" + sessionId;
         }
-        String forwardedFor = request.getHeader("X-Forwarded-For");
-        if (forwardedFor != null && !forwardedFor.isBlank()) {
-            return "ip:" + forwardedFor.split(",")[0].trim();
-        }
         return "ip:" + request.getRemoteAddr();
     }
 

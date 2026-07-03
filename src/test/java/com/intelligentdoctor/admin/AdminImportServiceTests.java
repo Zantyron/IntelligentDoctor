@@ -22,12 +22,12 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
-import java.util.Base64;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -176,6 +176,20 @@ class AdminImportServiceTests {
     }
 
     private String adminAuthHeader() {
-        return "Basic " + Base64.getEncoder().encodeToString("admin:admin".getBytes(StandardCharsets.UTF_8));
+        try {
+            String response = mockMvc.perform(post("/api/auth/login")
+                            .contentType("application/json")
+                            .content("""
+                                    {"username":"admin","password":"test-admin-password"}
+                                    """))
+                    .andExpect(status().isOk())
+                    .andReturn()
+                    .getResponse()
+                    .getContentAsString(StandardCharsets.UTF_8);
+            String token = response.replaceAll("(?s).*\"token\":\"([^\"]+)\".*", "$1");
+            return "Bearer " + token;
+        } catch (Exception ex) {
+            throw new IllegalStateException("failed to authenticate test admin", ex);
+        }
     }
 }

@@ -46,6 +46,7 @@ public class AdminUserInitializer implements CommandLineRunner {
         user.setHospitalId(hospitalId);
         user.setUsername(properties.getAdmin().getUsername());
         user.setPasswordHash(passwordService.hash(properties.getAdmin().getPassword()));
+        user.setRole("HOSPITAL_ADMIN");
         user.setEnabled(true);
         adminUserRepository.save(user);
     }

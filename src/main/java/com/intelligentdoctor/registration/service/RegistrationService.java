@@ -70,6 +70,9 @@ public class RegistrationService {
         String hospitalId = TenantContext.requireHospitalId();
         RegistrationDraftEntity draft = draftRepository.findWithLockByHospitalIdAndId(hospitalId, request.draftId())
                 .orElseThrow(() -> new EntityNotFoundException("registration draft not found"));
+        if (!request.sessionId().equals(draft.getSessionId())) {
+            throw new IllegalArgumentException("registration draft does not belong to current session");
+        }
 
         RegistrationOrderEntity existingOrder = orderRepository.findByHospitalIdAndDraftId(hospitalId, draft.getId()).orElse(null);
         if (existingOrder != null) {

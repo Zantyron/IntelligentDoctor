@@ -11,8 +11,12 @@ export interface ChatMessage {
 
 export interface ChatSession {
   sessionId: string;
+  hospitalId?: string;
+  terminalUsername?: string;
   title?: string;
   mode?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface Recommendation {

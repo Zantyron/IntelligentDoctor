@@ -1,7 +1,7 @@
 package com.intelligentdoctor;
 
-import com.intelligentdoctor.chat.dto.ChatMessageInput;
-import com.intelligentdoctor.chat.dto.ChatStreamRequest;
+import com.intelligentdoctor.auth.AdminPrincipal;
+import com.intelligentdoctor.auth.AdminTokenService;
 import com.intelligentdoctor.registration.dto.CreateDraftCommand;
 import com.intelligentdoctor.registration.service.RegistrationService;
 import org.junit.jupiter.api.Test;
@@ -13,8 +13,6 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.LocalDate;
-import java.util.List;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -30,6 +28,9 @@ class IntelligentDoctorApplicationTests {
 
     @Autowired
     private RegistrationService registrationService;
+
+    @Autowired
+    private AdminTokenService adminTokenService;
 
     @Test
     void contextLoads() {
@@ -54,6 +55,7 @@ class IntelligentDoctorApplicationTests {
                 }
                 """;
         mockMvc.perform(post("/api/chat/diagnosis/stream")
+                        .header("Authorization", terminalAuthHeader())
                         .contentType(MediaType.APPLICATION_JSON)
                         .accept(MediaType.TEXT_EVENT_STREAM)
                         .content(payload))
@@ -81,5 +83,10 @@ class IntelligentDoctorApplicationTests {
         ));
         assertThat(draft.draftId()).isNotBlank();
         assertThat(draft.status()).isEqualTo("DRAFT");
+    }
+
+    private String terminalAuthHeader() {
+        AdminPrincipal principal = new AdminPrincipal("hospital-demo", "machine-01", "TERMINAL_USER");
+        return "Bearer " + adminTokenService.issue(principal).token();
     }
 }

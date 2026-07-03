@@ -8,7 +8,8 @@ import jakarta.persistence.Table;
 
 @Entity
 @Table(name = "admin_user", indexes = {
-        @Index(name = "idx_admin_user_hospital_username", columnList = "hospitalId,username", unique = true)
+        @Index(name = "idx_admin_user_hospital_username", columnList = "hospitalId,username", unique = true),
+        @Index(name = "idx_admin_user_hospital_role", columnList = "hospitalId,role")
 })
 public class AdminUserEntity extends BaseEntity {
 
@@ -20,6 +21,9 @@ public class AdminUserEntity extends BaseEntity {
 
     @Column(nullable = false, length = 256)
     private String passwordHash;
+
+    @Column(nullable = false, length = 32)
+    private String role = "HOSPITAL_ADMIN";
 
     @Column(nullable = false)
     private Boolean enabled = true;
@@ -46,6 +50,14 @@ public class AdminUserEntity extends BaseEntity {
 
     public void setPasswordHash(String passwordHash) {
         this.passwordHash = passwordHash;
+    }
+
+    public String getRole() {
+        return role;
+    }
+
+    public void setRole(String role) {
+        this.role = role;
     }
 
     public Boolean getEnabled() {

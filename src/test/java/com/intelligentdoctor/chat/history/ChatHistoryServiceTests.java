@@ -136,4 +136,24 @@ class ChatHistoryServiceTests {
         assertThat(traceCaptor.getValue().getArgumentsJson()).contains("query", "胸闷");
         assertThat(traceCaptor.getValue().getResultJson()).contains("心内科知识");
     }
+
+    @Test
+    void deleteMessageScopesDeletionToHospital() {
+        ChatSessionMongoRepository sessionRepository = mock(ChatSessionMongoRepository.class);
+        ChatMessageMongoRepository messageRepository = mock(ChatMessageMongoRepository.class);
+        PromptTraceMongoRepository promptTraceRepository = mock(PromptTraceMongoRepository.class);
+        ToolTraceMongoRepository toolTraceRepository = mock(ToolTraceMongoRepository.class);
+        ChatHistoryService service = new ChatHistoryService(
+                sessionRepository,
+                messageRepository,
+                promptTraceRepository,
+                toolTraceRepository,
+                new JsonUtils(new ObjectMapper())
+        );
+
+        service.deleteMessage("hospital-a", "message-1");
+
+        verify(messageRepository).deleteByHospitalIdAndId("hospital-a", "message-1");
+        verify(messageRepository, never()).deleteById("message-1");
+    }
 }

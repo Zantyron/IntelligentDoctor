@@ -14,8 +14,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
-
 @RestController
 @RequestMapping("/api/registration")
 public class RegistrationController {
@@ -34,10 +32,5 @@ public class RegistrationController {
     @GetMapping("/draft/latest")
     public ApiResponse<RegistrationDraftView> latestDraft(@RequestParam String sessionId) {
         return ApiResponse.success(registrationService.latestDraft(TenantContext.requireHospitalId(), sessionId));
-    }
-
-    @GetMapping("/orders")
-    public ApiResponse<List<RegistrationOrderView>> orders() {
-        return ApiResponse.success(registrationService.listOrders(TenantContext.requireHospitalId()));
     }
 }

@@ -6,6 +6,8 @@ import com.intelligentdoctor.auth.dto.AdminLoginResponse;
 import com.intelligentdoctor.tenant.TenantContext;
 import org.springframework.stereotype.Service;
 
+import java.util.Locale;
+
 @Service
 public class AdminAuthService {
 
@@ -23,7 +25,8 @@ public class AdminAuthService {
 
     public AdminLoginResponse login(String username, String password) {
         String hospitalId = TenantContext.requireHospitalId();
-        AdminUserEntity user = adminUserRepository.findByHospitalIdAndUsername(hospitalId, username)
+        String normalizedUsername = username == null ? "" : username.trim().toLowerCase(Locale.ROOT);
+        AdminUserEntity user = adminUserRepository.findByHospitalIdAndUsernameAndRole(hospitalId, normalizedUsername, "HOSPITAL_ADMIN")
                 .orElseThrow(() -> new IllegalArgumentException("后台账号或密码不正确"));
         if (!Boolean.TRUE.equals(user.getEnabled()) || !passwordService.matches(password, user.getPasswordHash())) {
             throw new IllegalArgumentException("后台账号或密码不正确");

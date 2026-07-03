@@ -14,6 +14,12 @@ export function apiUrl(path: string): string {
   return `${base.replace(/\/$/, "")}${path}`;
 }
 
+export function terminalAuthHeader(): string | null {
+  const token = sessionStorage.getItem("TERMINAL_TOKEN");
+  if (!token) return null;
+  return `Bearer ${token}`;
+}
+
 export function createSessionId(): string {
   return `session-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
 }
@@ -39,7 +45,12 @@ export async function fetchJson<T>(
   path: string,
   options?: RequestInit
 ): Promise<T> {
-  const response = await fetch(apiUrl(path), options);
+  const headers = new Headers(options?.headers || {});
+  const authHeader = terminalAuthHeader();
+  if (authHeader && !headers.has("Authorization")) {
+    headers.set("Authorization", authHeader);
+  }
+  const response = await fetch(apiUrl(path), { ...options, headers });
   const payload = await response.json();
   if (!response.ok || !payload.success) {
     throw new Error(payload.message || "请求失败");

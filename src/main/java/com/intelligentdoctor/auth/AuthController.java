@@ -14,13 +14,21 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthController {
 
     private final AdminAuthService adminAuthService;
+    private final TerminalAuthService terminalAuthService;
 
-    public AuthController(AdminAuthService adminAuthService) {
+    public AuthController(AdminAuthService adminAuthService,
+                          TerminalAuthService terminalAuthService) {
         this.adminAuthService = adminAuthService;
+        this.terminalAuthService = terminalAuthService;
     }
 
     @PostMapping("/login")
     public ApiResponse<AdminLoginResponse> login(@Valid @RequestBody AdminLoginRequest request) {
         return ApiResponse.success(adminAuthService.login(request.username(), request.password()));
+    }
+
+    @PostMapping("/terminal/login")
+    public ApiResponse<AdminLoginResponse> terminalLogin(@Valid @RequestBody AdminLoginRequest request) {
+        return ApiResponse.success(terminalAuthService.login(request.username(), request.password()));
     }
 }

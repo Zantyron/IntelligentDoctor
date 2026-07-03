@@ -4,6 +4,20 @@ CREATE DATABASE IF NOT EXISTS doctor
 
 USE doctor;
 
+CREATE TABLE IF NOT EXISTS admin_user (
+    id VARCHAR(36) NOT NULL,
+    hospital_id VARCHAR(64) NOT NULL,
+    username VARCHAR(64) NOT NULL,
+    password_hash VARCHAR(256) NOT NULL,
+    role VARCHAR(32) NOT NULL DEFAULT 'HOSPITAL_ADMIN',
+    enabled TINYINT(1) NOT NULL DEFAULT 1,
+    created_at DATETIME(6) NOT NULL,
+    updated_at DATETIME(6) NOT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY idx_admin_user_hospital_username (hospital_id, username),
+    KEY idx_admin_user_hospital_role (hospital_id, role)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS hospital (
     id VARCHAR(36) NOT NULL,
     hospital_code VARCHAR(64) NOT NULL,

@@ -5,6 +5,7 @@ import org.springframework.stereotype.Service;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
+import java.security.MessageDigest;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Base64;
@@ -31,15 +32,25 @@ public class AdminTokenService {
             return null;
         }
         String[] parts = token.split("\\.");
-        if (parts.length != 2 || !sign(parts[0]).equals(parts[1])) {
+        if (parts.length != 2 || !constantTimeEquals(sign(parts[0]), parts[1])) {
             return null;
         }
-        String payload = new String(Base64.getUrlDecoder().decode(parts[0]), StandardCharsets.UTF_8);
-        String[] fields = payload.split("\\|");
-        if (fields.length != 4) {
+        String[] fields;
+        try {
+            String payload = new String(Base64.getUrlDecoder().decode(parts[0]), StandardCharsets.UTF_8);
+            fields = payload.split("\\|");
+            if (fields.length != 4) {
+                return null;
+            }
+        } catch (IllegalArgumentException ex) {
             return null;
         }
-        long expiresAt = Long.parseLong(fields[3]);
+        long expiresAt;
+        try {
+            expiresAt = Long.parseLong(fields[3]);
+        } catch (NumberFormatException ex) {
+            return null;
+        }
         if (Instant.now().getEpochSecond() > expiresAt) {
             return null;
         }
@@ -58,6 +69,14 @@ public class AdminTokenService {
 
     private String base64Url(byte[] bytes) {
         return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+    }
+
+    private boolean constantTimeEquals(String expected, String actual) {
+        return expected != null
+                && actual != null
+                && MessageDigest.isEqual(
+                expected.getBytes(StandardCharsets.UTF_8),
+                actual.getBytes(StandardCharsets.UTF_8));
     }
 
     public record TokenIssue(String token, long expiresAtEpochSeconds) {

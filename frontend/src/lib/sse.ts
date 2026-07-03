@@ -1,5 +1,5 @@
 import type { ChatResultMetadata } from "@/types";
-import { apiUrl } from "./api";
+import { apiUrl, terminalAuthHeader } from "./api";
 
 export interface SseHandlers {
   onMeta?: (content: string) => void;
@@ -73,12 +73,17 @@ export async function streamChat(
   body: object,
   handlers: SseHandlers
 ): Promise<string> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    Accept: "text/event-stream",
+  };
+  const authHeader = terminalAuthHeader();
+  if (authHeader) {
+    headers.Authorization = authHeader;
+  }
   const response = await fetch(apiUrl(endpoint), {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Accept: "text/event-stream",
-    },
+    headers,
     body: JSON.stringify(body),
   });
 

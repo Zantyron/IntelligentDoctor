@@ -10,6 +10,7 @@ public interface ChatMessageMongoRepository extends MongoRepository<ChatMessageD
     List<ChatMessageDocument> findByHospitalIdAndSessionIdOrderByCreatedAtAsc(String hospitalId, String sessionId);
 
     void deleteBySessionId(String sessionId);
+    void deleteByHospitalIdAndId(String hospitalId, String id);
     void deleteByHospitalIdAndSessionId(String hospitalId, String sessionId);
 
     void deleteBySessionIdIn(Iterable<String> sessionIds);

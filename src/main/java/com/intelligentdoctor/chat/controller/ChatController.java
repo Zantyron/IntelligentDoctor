@@ -60,7 +60,7 @@ public class ChatController {
 
     @DeleteMapping("/messages")
     public ApiResponse<Void> deleteMessage(@RequestParam String messageId) {
-        chatHistoryService.deleteMessage(messageId);
+        chatHistoryService.deleteMessage(TenantContext.requireHospitalId(), messageId);
         return ApiResponse.success(null);
     }
 
